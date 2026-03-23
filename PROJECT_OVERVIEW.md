@@ -1,0 +1,21 @@
+# Projektübersicht
+
+VIZR ist ein browserbasiertes Visual-System, das lokale Bilder in dynamische, audioreaktive Live-Visuals verwandelt.
+
+## Projektidee
+
+Die Idee hinter VIZR ist es, ein Tool zu schaffen, das sofort einsatzbereit ist und ohne komplexe Einarbeitung funktioniert. Es richtet sich an Musiker, DJs, VJs und Kreative, die schnell und unkompliziert visuelle Begleitung für ihre Musik benötigen.
+
+VIZR verzichtet bewusst auf Timelines, Keyframes und komplizierte Editoren. Stattdessen nutzt es ein intelligentes System, das Bilder basierend auf ihren Dateinamen (Tags) und der Audioanalyse automatisch in Szene setzt.
+
+## Ziel
+
+Das Ziel von VIZR ist es, eine rohe, analoge und musikalische Ästhetik zu erzeugen. Die Visuals sollen nicht wie ein generischer Winamp-Visualizer aussehen, sondern wie ein durchdachtes, reaktives System, das mit der Musik "tanzt".
+
+## Designphilosophie
+
+- **Minimalismus:** Die Benutzeroberfläche ist auf das Nötigste reduziert. Keine überladenen Menüs, keine unzähligen Regler.
+- **Browser-Based:** Alles läuft lokal im Browser. Keine Installation, keine Cloud-Uploads, keine Latenz durch externe Server.
+- **System statt Filter:** VIZR ist kein einfacher Bildfilter. Es ist ein System, das Bilder in Rollen (Background, Poster, Logo, Overlay) einteilt und diese intelligent kombiniert.
+- **Musikalität:** Die Audio-Reaktivität ist nicht nur an die Lautstärke gekoppelt, sondern an musikalische Elemente wie Kick, Clap, Hi-Hats und Bass Groove.
+- **Analoge Ästhetik:** Der Fokus liegt auf einer rohen, unperfekten Ästhetik (VHS, CRT, Glitches), die an alte Röhrenfernseher und Broadcast-Störungen erinnert.

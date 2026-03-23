@@ -1,0 +1,5 @@
+{
+  "name": "VIZR",
+  "description": "A browser-based visual system that generates analog TV and VHS distortion effects from local image files, reacting to audio input.",
+  "requestFramePermissions": ["microphone", "display-capture"]
+}
