@@ -6,8 +6,8 @@ Hier findest du Antworten auf häufig gestellte Fragen zu VIZR.
 
 ### Wie starte ich VIZR?
 1. Lade deine Bilder hoch (per Drag & Drop oder über den "Upload Assets" Button).
-2. Wähle eine Audioquelle (Ambient, Microphone oder Screen Audio).
-3. Klicke auf "Start System".
+2. Wähle eine Audioquelle (Ambient, Microphone, Screen Audio oder File).
+3. Klicke auf "Initialize".
 
 ### Welche Bilder eignen sich am besten?
 VIZR funktioniert am besten mit einer Mischung aus verschiedenen Bildtypen:
@@ -35,6 +35,20 @@ Der "Ambient"-Modus simuliert ein Audiosignal mit regelmäßigen Peaks (wie ein 
 
 ### Kann ich Spotify oder YouTube als Audioquelle nutzen?
 Ja. Wähle dazu die Audioquelle "Screen Audio" (Bildschirm-Audio). Dein Browser wird dich dann fragen, welchen Tab oder welches Fenster du freigeben möchtest. Wähle den Tab aus, in dem deine Musik läuft, und achte darauf, dass die Option "Audio freigeben" (Share audio) aktiviert ist.
+
+### Kann ich lokale Audiodateien (MP3, WAV) verwenden?
+Ja. Wähle als Audioquelle "File" und lade deine Audiodatei hoch. VIZR spielt die Datei ab und reagiert direkt auf das Audiosignal.
+
+## Steuerung & Remote
+
+### Wie funktioniert die Smartphone-Fernbedienung (VIZR Remote)?
+Klicke im Setup-Bildschirm auf "VIZR REMOTE". Es erscheint ein QR-Code. Scanne diesen mit der Kamera deines Smartphones. Es öffnet sich eine mobile Web-App, mit der du die Visuals live steuern kannst (z.B. Effekte anpassen, Bilder manuell wechseln oder neue Bilder vom Handy hochladen).
+
+### Was machen die Global Effect Sliders?
+- **Complexity:** Steuert, wie viele verschiedene Glitch-Effekte gleichzeitig auftreten können.
+- **Event Density:** Bestimmt, wie oft zufällige Glitch-Events (unabhängig von der Musik) ausgelöst werden.
+- **RGB Shift:** Regelt die Stärke der Farbverschiebung (Rot/Grün/Blau) an den Rändern der Bilder.
+- **CRT Curvature:** Verändert die Wölbung des Bildschirms, um den Look alter Röhrenfernseher zu simulieren.
 
 ## Einschränkungen
 

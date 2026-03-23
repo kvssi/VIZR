@@ -16,6 +16,7 @@ Das Ziel von VIZR ist es, eine rohe, analoge und musikalische Ästhetik zu erzeu
 
 - **Minimalismus:** Die Benutzeroberfläche ist auf das Nötigste reduziert. Keine überladenen Menüs, keine unzähligen Regler.
 - **Browser-Based:** Alles läuft lokal im Browser. Keine Installation, keine Cloud-Uploads, keine Latenz durch externe Server.
+- **Remote Control:** Über eine WebSockets-Verbindung lässt sich VIZR live und latenzfrei per Smartphone steuern, ohne dass Mediendaten übertragen werden.
 - **System statt Filter:** VIZR ist kein einfacher Bildfilter. Es ist ein System, das Bilder in Rollen (Background, Poster, Logo, Overlay) einteilt und diese intelligent kombiniert.
 - **Musikalität:** Die Audio-Reaktivität ist nicht nur an die Lautstärke gekoppelt, sondern an musikalische Elemente wie Kick, Clap, Hi-Hats und Bass Groove.
 - **Analoge Ästhetik:** Der Fokus liegt auf einer rohen, unperfekten Ästhetik (VHS, CRT, Glitches), die an alte Röhrenfernseher und Broadcast-Störungen erinnert.

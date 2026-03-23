@@ -13,13 +13,19 @@ Das System läuft komplett lokal in deinem Browser. Deine Bilder werden nirgendw
 ## Schnellstart
 
 1. **Bilder hochladen:** Klicke auf "Upload Assets" oder ziehe deine Bilder per Drag & Drop in das Fenster.
-2. **Audioquelle wählen:** Wähle zwischen "Ambient" (simulierte Peaks), "Microphone" (Live-Audio) oder "Screen Audio" (System-Audio).
+2. **Audioquelle wählen:** Wähle zwischen "Ambient" (simulierte Peaks), "Microphone" (Live-Audio), "Screen Audio" (System-Audio) oder "File" (lokale Audiodatei).
 3. **Start:** Das System beginnt sofort, deine Bilder im aktuellen visuellen Modus (VHS / Broken TV) zu animieren.
+
+## Neue Features
+
+- **VIZR Remote:** Steuere die Visuals live über dein Smartphone! Scanne einfach den QR-Code im Setup-Bildschirm, um Effekte, Intensität und Bildwechsel in Echtzeit zu dirigieren.
+- **Lokale Audiodateien:** Du kannst jetzt auch direkt MP3- oder WAV-Dateien in den Browser laden, um sie als Audioquelle zu nutzen.
+- **Globale Effekt-Regler:** Passe Parameter wie *Complexity*, *Event Density*, *RGB Shift* und *CRT Curvature* stufenlos an deinen Vibe an.
 
 ## Nutzung
 
 - **Dateinamen-Tags:** Du kannst das Verhalten deiner Bilder steuern, indem du bestimmte Tags in den Dateinamen schreibst (z.B. `poster__color__peak.jpg`). Mehr dazu im [Asset Naming Guide](ASSET_NAMING_GUIDE.md).
-- **Steuerung:** Das System läuft weitgehend automatisch. Du kannst die Intensität der Effekte über den Slider anpassen und den Farbmodus wählen.
+- **Steuerung:** Das System läuft weitgehend automatisch, lässt sich aber über das Web-Interface oder die Smartphone-Remote live beeinflussen.
 - **Vollbild:** Nutze die F11-Taste deines Browsers für das beste Erlebnis.
 
 ## Hinweise zum Beta-Status

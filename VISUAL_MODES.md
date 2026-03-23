@@ -35,4 +35,12 @@ Neben den großen Glitch-Events reagiert der Modus kontinuierlich auf die Musik:
 - **Clap/Snare:** Verursacht ein kurzes horizontales Knistern und einen kurzen RGB-Split.
 - **Hi-Hats:** Lassen die Scanlines leicht funkeln und modulieren das Hintergrundrauschen.
 
+### Live-Steuerung (Global Effect Sliders)
+
+Die Intensität und Häufigkeit dieser Effekte lässt sich über die **Global Effect Sliders** im Web-Interface oder über die VIZR Remote-App in Echtzeit anpassen:
+- **Complexity:** Steuert die Überlagerung und Intensität der Glitches.
+- **Event Density:** Beeinflusst, wie oft zufällige Glitch-Events (unabhängig von der Musik) auftreten.
+- **RGB Shift:** Erhöht oder verringert den chromatischen Farbversatz.
+- **CRT Curvature:** Steuert die Wölbung des Röhrenfernseher-Effekts.
+
 Dieser Modus ist ideal für elektronische Musik (Techno, House, Electro), da er die rhythmische Struktur der Musik in eine rohe, analoge visuelle Sprache übersetzt.

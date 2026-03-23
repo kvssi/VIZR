@@ -4,10 +4,11 @@ VIZR ist ein browserbasiertes Visual-System, das auf React und WebGL basiert. Es
 
 ## Aufbau des Systems
 
-Das System besteht aus drei Hauptkomponenten:
-1. **Benutzeroberfläche (React):** Verarbeitet Benutzereingaben (Datei-Uploads, Audioquellen-Auswahl, Intensitätsregler).
+Das System besteht aus vier Hauptkomponenten:
+1. **Benutzeroberfläche (React):** Verarbeitet Benutzereingaben (Datei-Uploads, Audioquellen-Auswahl, globale Effekt-Regler).
 2. **Audio-Analyzer (Web Audio API):** Analysiert das eingehende Audiosignal in Echtzeit und extrahiert musikalische Merkmale (Kick, Clap, Hi-Hats, Bass Groove).
 3. **Visual Engine (WebGL):** Rendert die hochgeladenen Bilder basierend auf den Audio-Daten und den zugewiesenen Rollen.
+4. **Backend (Express & Socket.io):** Ein leichtgewichtiges Node.js-Backend, das die Echtzeit-Synchronisation zwischen der Hauptanwendung und der Smartphone-Fernbedienung (VIZR Remote) ermöglicht.
 
 ## Layer-System
 
@@ -24,4 +25,17 @@ Das Asset-System verwaltet die hochgeladenen Bilder. Es analysiert die Dateiname
 
 ## Audio-System
 
-Das Audio-System (`AudioAnalyzer`) nutzt die Web Audio API, um das Audiosignal in Echtzeit zu analysieren. Es extrahiert nicht nur die Gesamtlautstärke, sondern teilt das Signal in Frequenzbänder (Low, Mid, High) auf und erkennt Transienten (schnelle Lautstärkeänderungen), um musikalische Elemente wie Kick, Clap und Hi-Hats zu identifizieren. Diese Daten werden an die Visual Engine übergeben, um die visuellen Effekte zu steuern.
+Das Audio-System (`AudioAnalyzer`) nutzt die Web Audio API, um das Audiosignal in Echtzeit zu analysieren. Es unterstützt vier verschiedene Audioquellen:
+- **Microphone:** Live-Eingabe über das Mikrofon.
+- **Screen Audio:** System-Audio, das über die Bildschirmfreigabe des Browsers abgegriffen wird.
+- **File:** Eine lokale Audiodatei (MP3, WAV), die direkt im Browser abgespielt wird.
+- **Ambient:** Ein simuliertes Audiosignal mit regelmäßigen Peaks für Testzwecke.
+
+Das System extrahiert nicht nur die Gesamtlautstärke, sondern teilt das Signal in Frequenzbänder (Low, Mid, High) auf und erkennt Transienten (schnelle Lautstärkeänderungen), um musikalische Elemente wie Kick, Clap und Hi-Hats zu identifizieren. Diese Daten werden an die Visual Engine übergeben, um die visuellen Effekte zu steuern.
+
+## Remote Control System
+
+VIZR beinhaltet ein Remote-Control-System, das es ermöglicht, die Visuals über ein zweites Gerät (z.B. ein Smartphone) zu steuern. 
+- **Verbindung:** Die Hauptanwendung generiert einen QR-Code mit einer eindeutigen Room-ID. Das Smartphone scannt den Code und verbindet sich über WebSockets (Socket.io) mit demselben Raum.
+- **Synchronisation:** Das Backend leitet lediglich Steuerbefehle (Slider-Werte, Button-Klicks, Bild-Uploads) zwischen den Clients weiter. Es werden keine Audiodaten oder großen Bilddateien über das Netzwerk gestreamt (mit Ausnahme von kleinen Bild-Uploads über die Remote, die als Base64-Strings übertragen werden).
+- **Sicherheit:** Da die Hauptverarbeitung lokal im Browser stattfindet, bleibt die Latenz minimal und die Privatsphäre gewahrt.

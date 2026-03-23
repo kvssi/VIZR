@@ -1,6 +1,6 @@
 # Audio-Visual Logik
 
-VIZR übersetzt Audiosignale in visuelle Effekte. Das System analysiert das eingehende Audiosignal in Echtzeit und extrahiert musikalische Merkmale, um die Visuals dynamisch und rhythmisch zu steuern.
+VIZR übersetzt Audiosignale in visuelle Effekte. Das System analysiert das eingehende Audiosignal (Mikrofon, System-Audio oder lokale Audiodatei) in Echtzeit und extrahiert musikalische Merkmale, um die Visuals dynamisch und rhythmisch zu steuern.
 
 ## Wie Audio in Visuals übersetzt wird
 
