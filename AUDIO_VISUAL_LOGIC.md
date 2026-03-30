@@ -20,14 +20,16 @@ Das System erkennt schnelle Lautstärkeänderungen (Transienten) in den Frequenz
 
 Die Visuals reagieren nicht nur auf die Gesamtlautstärke, sondern auf spezifische musikalische Elemente:
 
-### 1. Kick (Low Frequencies)
+### 1. Kick (Low Frequencies) & Beat-Synced Zoom
 
 - **Erkennung:** Starke Transienten im Low-Frequenzband (z.B. Kick-Drum).
-- **Visual Mapping:**
-  - **Puls / Druck:** Ein kurzer, subtiler Zoom-Effekt (Screen Punch).
-  - **Mini-Zoom:** Das Bild wird kurzzeitig vergrößert.
-  - **Kontrast / Helligkeit:** Ein leichter Push in Kontrast und Helligkeit.
-- **Verhalten:** Der Kick erzeugt einen klaren, rhythmischen Puls, der die Visuals antreibt, ohne chaotische Verzerrungen zu verursachen.
+- **Visual Mapping (Zustandsbasiert):**
+  - **Pulse:** Ein kurzer Zoom-In Impuls auf dem Beat.
+  - **Drift:** Ein sehr langsamer, weicher Zoom-Out zwischen den Beats.
+  - **Hold:** Keine Zoom-Bewegung (für musikalische Pausen).
+- **4-Beat-Pattern:** Das System zählt die Kicks und variiert die Reaktion, um mechanische Wiederholungen zu vermeiden (z.B. Beat 1: kleiner Pulse, Beat 2: keine Reaktion, Beat 3: subtiler Shift, Beat 4: starker Pulse oder Reset).
+- **Parallax-Effekt:** Der Zoom wirkt sich zu 100% auf Poster-Layer und zu 40% auf Overlay-Layer aus. Backgrounds und Logos bleiben statisch.
+- **Verhalten:** Der Kick erzeugt einen klaren, rhythmischen und organischen Groove, der die Visuals antreibt, ohne chaotisch zu wirken.
 
 ### 2. Clap / Snare (Mid Frequencies)
 
@@ -63,3 +65,27 @@ Die Visuals reagieren nicht nur auf die Gesamtlautstärke, sondern auf spezifisc
   - **Event-basierte Glitches:** Kurze, intensive visuelle Störungen (z.B. Flicker Bursts, Horizontal Tearing, Tracking Roll, Noise Bursts).
   - **Bildwechsel:** Bei starken Peaks werden die Bilder (Background, Poster, Overlay) häufiger gewechselt.
 - **Verhalten:** Peaks lösen seltene, aber wirkungsvolle visuelle Events aus, die den Höhepunkt der Musik betonen.
+
+### 6. Build-Up Intensifier & Drop Pulse
+
+- **Erkennung:** Kontinuierlicher Anstieg der Energie in den mittleren und hohen Frequenzen über einen längeren Zeitraum (z.B. Snare-Rolls, Riser), gefolgt von einem plötzlichen Abfall (Drop).
+- **Visual Mapping:**
+  - **Build-Up Phase:** Langsamer, unaufhaltsamer Zoom-In, Reduzierung der normalen Beat-Reaktionen, Zunahme von Micro-Texturen (Noise/Grain) und Kontrastverschiebungen. Die visuelle Spannung steigt spürbar an.
+  - **Drop Pulse:** Sobald der Build-Up endet (der Drop einsetzt), wird ein massiver, kurzer visueller Impuls (Farbverschiebung, starker Zoom-Out) ausgelöst, der die aufgestaute Energie freisetzt.
+- **Verhalten:** Simuliert das Gefühl eines musikalischen Spannungsbogens und sorgt für maximale visuelle Wirkung beim Drop.
+
+### 7. Subtle Surface Effects
+
+- **Erkennung:** Kontinuierliche Analyse der hohen Frequenzen (Hi-Hats, Rauschen) kombiniert mit langsamem, zufälligem Drift.
+- **Visual Mapping:**
+  - **Micro-Flicker & Grain:** Ein extrem feines, kaum wahrnehmbares Rauschen und Flackern, das wie analoges Filmmaterial oder eine alte Röhre wirkt.
+  - **Minimal RGB Shift:** Eine ständige, winzige Farbverschiebung an den Kanten, die das Bild lebendig hält, selbst wenn die Musik ruhig ist.
+- **Verhalten:** Verhindert, dass das Bild in ruhigen Passagen "tot" wirkt. Es fügt eine organische, analoge Textur hinzu, die das Bild atmen lässt.
+
+### 8. Drift Offset
+
+- **Erkennung:** Intervallbasiert (z.B. alle 8 Sekunden) kombiniert mit der Bass/Groove-Energie.
+- **Visual Mapping:**
+  - **Subtiler Bildversatz:** Ein sehr leichter horizontaler und/oder vertikaler Shift des gesamten Bildes.
+  - **Weicher Übergang:** Der Effekt blendet sich sanft über 1-3 Sekunden ein, hält kurz an und kehrt dann langsam in die stabile Ausgangsposition zurück.
+- **Verhalten:** Erzeugt ein organisch instabiles Gefühl, ohne zu dominieren oder sichtbare "Sprünge" zu verursachen. In ruhigen Passagen ist der Drift minimal bis nicht vorhanden, bei stärkerem Groove wird er leicht intensiver.

@@ -14,11 +14,22 @@ async function startServer() {
   const PORT = 3000;
 
   io.on('connection', (socket) => {
+    let currentRoom: string | null = null;
+    let currentRole: string | null = null;
+
     socket.on('join-room', (roomId, role) => {
+      currentRoom = roomId;
+      currentRole = role;
       socket.join(roomId);
+      
       if (role === 'remote') {
         // Ask host to sync state to the new remote
         socket.to(roomId).emit('request-sync');
+        // Notify host that remote connected
+        socket.to(roomId).emit('remote-connected');
+      } else if (role === 'host') {
+        // Notify remote that host connected
+        socket.to(roomId).emit('host-connected');
       }
     });
 
@@ -32,6 +43,16 @@ async function startServer() {
 
     socket.on('upload-image', (roomId, imagePayload) => {
       socket.to(roomId).emit('new-image', imagePayload);
+    });
+
+    socket.on('disconnect', () => {
+      if (currentRoom) {
+        if (currentRole === 'remote') {
+          socket.to(currentRoom).emit('remote-disconnected');
+        } else if (currentRole === 'host') {
+          socket.to(currentRoom).emit('host-disconnected');
+        }
+      }
     });
   });
 

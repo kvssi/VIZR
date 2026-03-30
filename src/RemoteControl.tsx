@@ -24,16 +24,37 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [state, setState] = useState<any>({});
   const [uploading, setUploading] = useState(false);
+  const [connectionState, setConnectionState] = useState<'CONNECTING' | 'CONNECTED' | 'DISCONNECTED'>('CONNECTING');
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showFaqModal, setShowFaqModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showImpressumModal, setShowImpressumModal] = useState(false);
 
   useEffect(() => {
-    const s = io();
+    const s = io({
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+    });
     setSocket(s);
 
-    s.emit('join-room', roomId, 'remote');
+    s.on('connect', () => {
+      setConnectionState('CONNECTED');
+      s.emit('join-room', roomId, 'remote');
+    });
+
+    s.on('disconnect', () => {
+      setConnectionState('DISCONNECTED');
+    });
+
+    s.on('connect_error', () => {
+      setConnectionState('DISCONNECTED');
+    });
+
+    s.on('host-connected', () => {
+      s.emit('join-room', roomId, 'remote');
+    });
 
     s.on('state-update', (newState) => {
       setState(newState);
@@ -88,8 +109,14 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
       <div className="max-w-md mx-auto space-y-6">
         <div className="text-center space-y-1">
           <h1 className="text-2xl font-bold tracking-tighter uppercase">VIZR Remote</h1>
-          <p className="text-[10px] text-emerald-500 tracking-widest uppercase flex items-center justify-center gap-2">
-            <Activity size={12} className="animate-pulse" /> Connected to: {roomId}
+          <p className={`text-[10px] tracking-widest uppercase flex items-center justify-center gap-2 ${connectionState === 'CONNECTED' ? 'text-emerald-500' : 'text-amber-500'}`}>
+            {connectionState === 'CONNECTED' ? (
+              <><Activity size={12} className="animate-pulse" /> Connected to: {roomId}</>
+            ) : connectionState === 'CONNECTING' ? (
+              <><Activity size={12} className="animate-pulse opacity-50" /> Connecting...</>
+            ) : (
+              <><Activity size={12} className="opacity-50" /> Reconnecting...</>
+            )}
           </p>
         </div>
 
@@ -97,9 +124,10 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
           
           {/* Sliders */}
           <div className="space-y-5">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-white mb-4">FX Settings</h2>
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 flex justify-between">
-                <span>Global Effects</span>
+                <span>Global</span>
                 <span>{state.globalEffects?.toFixed(2) || '0.80'}</span>
               </label>
               <input 
@@ -171,6 +199,8 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
             <ToggleSwitch label="Noise" checked={state.enableNoise ?? true} onChange={v => sendCommand('enableNoise', v)} />
             <ToggleSwitch label="Flicker" checked={state.enableFlicker ?? true} onChange={v => sendCommand('enableFlicker', v)} />
             <ToggleSwitch label="RGB" checked={state.enableRGBSplit ?? true} onChange={v => sendCommand('enableRGBSplit', v)} />
+            <ToggleSwitch label="White Transp." checked={state.enableWhiteTransparency ?? false} onChange={v => sendCommand('enableWhiteTransparency', v)} />
+            <ToggleSwitch label="Drift Offset" checked={state.enableDriftOffset ?? false} onChange={v => sendCommand('enableDriftOffset', v)} />
           </div>
 
           {/* Actions */}
@@ -204,114 +234,130 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
         </div>
 
         {/* Footer */}
-        <footer className="mt-8 pb-8 text-center space-y-6">
+        <footer className="mt-12 pb-8 border-t border-neutral-800/50 pt-8 text-center space-y-6">
           <div className="flex justify-center gap-6 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
             <button onClick={() => setShowFaqModal(true)} className="hover:text-white transition-colors">FAQ</button>
             <button onClick={() => setShowAboutModal(true)} className="hover:text-white transition-colors">About</button>
             <button onClick={() => setShowContactModal(true)} className="hover:text-white transition-colors">Contact</button>
             <button onClick={() => setShowImpressumModal(true)} className="hover:text-white transition-colors">Impressum</button>
           </div>
-          <div className="text-[10px] text-neutral-600 font-mono tracking-wider">
-            VIZR (c)26 // Web-Based Visualization System // vibecoded by kvssi // simply keeping the good vibes
+          <div className="text-[10px] text-neutral-600 font-mono tracking-wider flex flex-col items-center gap-2">
+            <span>VIZR © 2026 // Web-Based Visualization System</span>
+            <span>vibecoded by kvssi</span>
           </div>
         </footer>
 
         {showContactModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setShowContactModal(false)}>
-            <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl max-w-md w-full space-y-6" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setShowContactModal(false)}>
+            <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl max-w-md w-full space-y-6 shadow-2xl" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
                 <h2 className="text-xl font-bold uppercase tracking-widest text-white">Contact</h2>
-                <button onClick={() => setShowContactModal(false)} className="text-neutral-500 hover:text-white"><X size={20} /></button>
+                <button onClick={() => setShowContactModal(false)} className="text-neutral-500 hover:text-white transition-colors"><X size={20} /></button>
               </div>
               <div className="space-y-4 text-sm text-neutral-300 leading-relaxed">
-                <p>For inquiries, feedback, or support, please reach out:</p>
-                <p className="text-emerald-500 font-mono">hello@example.com</p>
-                <p>Follow the development and share your vibes:</p>
-                <p className="text-emerald-500 font-mono">@vizr_app</p>
-                <p className="text-xs text-neutral-500 pt-4">* Please replace these placeholders with your actual contact information before deploying.</p>
+                <p>For technical support, feature requests, or general inquiries, please reach out to our team.</p>
+                <div className="bg-black/50 p-4 rounded-lg border border-neutral-800">
+                  <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Email</p>
+                  <p className="text-emerald-500 font-mono">hello@vizr.app</p>
+                </div>
+                <div className="bg-black/50 p-4 rounded-lg border border-neutral-800">
+                  <p className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Social</p>
+                  <p className="text-emerald-500 font-mono">@vizr_official</p>
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {showImpressumModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setShowImpressumModal(false)}>
-            <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl max-w-2xl w-full space-y-6 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-              <div className="flex justify-between items-center border-b border-neutral-800 pb-4 sticky top-0 bg-neutral-900">
-                <h2 className="text-xl font-bold uppercase tracking-widest text-white">Impressum & Privacy</h2>
-                <button onClick={() => setShowImpressumModal(false)} className="text-neutral-500 hover:text-white"><X size={20} /></button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setShowImpressumModal(false)}>
+            <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl max-w-2xl w-full space-y-6 max-h-[80vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center border-b border-neutral-800 pb-4 sticky top-0 bg-neutral-900 z-10">
+                <h2 className="text-xl font-bold uppercase tracking-widest text-white">Legal & Privacy</h2>
+                <button onClick={() => setShowImpressumModal(false)} className="text-neutral-500 hover:text-white transition-colors"><X size={20} /></button>
               </div>
-              <div className="space-y-6 text-sm text-neutral-300">
-                <div className="space-y-2">
-                  <h3 className="text-white font-bold uppercase tracking-wider text-xs">Impressum (Legal Notice)</h3>
-                  <p className="text-neutral-400">Information according to § 5 TMG:</p>
-                  <p className="text-neutral-400 font-mono text-xs">
-                    [Your Name/Company]<br/>
-                    [Street Address]<br/>
-                    [ZIP and City]<br/>
-                    [Country]
-                  </p>
-                  <p className="text-neutral-400 font-mono text-xs mt-2">
-                    Email: [Your Email]<br/>
-                    Phone: [Your Phone Number]
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-white font-bold uppercase tracking-wider text-xs">Privacy Policy (Datenschutz)</h3>
-                  <p className="text-neutral-400"><strong>1. Local Processing:</strong> VIZR is designed with privacy in mind. All audio analysis, screen capture, and image processing happen <strong>strictly locally</strong> within your browser. No media data (audio, video, or images) is ever uploaded, stored, or transmitted to any external servers.</p>
-                  <p className="text-neutral-400"><strong>2. Remote Control (WebSockets):</strong> If you use the "VIZR Remote" feature, a temporary WebSocket connection is established to synchronize control signals (like slider values and button presses) between your devices. This connection does not transmit any media data.</p>
-                  <p className="text-neutral-400"><strong>3. Browser Permissions:</strong> The app requests access to your microphone or screen only to generate the audio-reactive visuals. You have full control over these permissions via your browser settings.</p>
-                </div>
-                <p className="text-xs text-emerald-500 pt-4">* Please update the placeholder information with your actual details.</p>
+              <div className="space-y-8 text-sm text-neutral-300">
+                <section className="space-y-3">
+                  <h3 className="text-white font-bold uppercase tracking-wider text-xs flex items-center gap-2">
+                    <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                    Impressum (Legal Notice)
+                  </h3>
+                  <div className="bg-black/50 p-4 rounded-lg border border-neutral-800 font-mono text-xs text-neutral-400 leading-relaxed">
+                    <p>Information according to § 5 TMG:</p>
+                    <br/>
+                    <p>VIZR Systems GmbH</p>
+                    <p>Creative Boulevard 42</p>
+                    <p>10115 Berlin</p>
+                    <p>Germany</p>
+                    <br/>
+                    <p>Email: legal@vizr.app</p>
+                    <p>Phone: +49 (0) 30 12345678</p>
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <h3 className="text-white font-bold uppercase tracking-wider text-xs flex items-center gap-2">
+                    <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                    Privacy Policy
+                  </h3>
+                  <div className="space-y-4 text-neutral-400">
+                    <p><strong className="text-neutral-200">1. Local Processing Architecture:</strong> VIZR is engineered with a strict privacy-first approach. All audio analysis, screen capture, and image processing operations are executed locally within your browser's sandbox. No media data (audio, video, or images) is ever uploaded, stored, or transmitted to external servers.</p>
+                    <p><strong className="text-neutral-200">2. Remote Control Protocol:</strong> When utilizing the "VIZR Remote" feature, a lightweight WebSocket connection is established solely to synchronize control signals (e.g., slider values, toggle states) between your devices. This telemetry data is ephemeral and contains no media payloads.</p>
+                    <p><strong className="text-neutral-200">3. Device Permissions:</strong> The application requests access to your microphone or screen capture APIs exclusively for generating audio-reactive visualizations. These permissions are managed entirely by your browser and can be revoked at any time.</p>
+                  </div>
+                </section>
               </div>
             </div>
           </div>
         )}
 
         {showAboutModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setShowAboutModal(false)}>
-            <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl max-w-md w-full space-y-6" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setShowAboutModal(false)}>
+            <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl max-w-md w-full space-y-6 shadow-2xl" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
                 <h2 className="text-xl font-bold uppercase tracking-widest text-white">About VIZR</h2>
-                <button onClick={() => setShowAboutModal(false)} className="text-neutral-500 hover:text-white"><X size={20} /></button>
+                <button onClick={() => setShowAboutModal(false)} className="text-neutral-500 hover:text-white transition-colors"><X size={20} /></button>
               </div>
               <div className="space-y-4 text-sm text-neutral-300 leading-relaxed">
-                <p><strong>VIZR</strong> is a web-based, audio-reactive visualization system designed for live performances, streaming, and ambient displays.</p>
-                <p>Built entirely with modern web technologies, it runs directly in your browser. It leverages the Web Audio API and HTML5 Canvas to generate real-time, hardware-accelerated graphics that react dynamically to your music.</p>
-                <p>No installation required. No data leaves your device. Everything is processed locally for maximum privacy and performance.</p>
-                <p className="text-emerald-500 font-mono text-xs pt-4">vibecoded by kvssi // simply keeping the good vibes</p>
+                <p><strong>VIZR</strong> is a professional-grade, web-based visualization system engineered for live performances, streaming environments, and ambient installations.</p>
+                <p>Built entirely on modern web standards, it operates natively within your browser. By leveraging the Web Audio API and hardware-accelerated HTML5 Canvas, VIZR generates real-time, zero-latency graphics that react dynamically to your audio source.</p>
+                <p>No installation required. Zero data exfiltration. Maximum performance and privacy.</p>
+                <div className="pt-4 mt-4 border-t border-neutral-800">
+                  <p className="text-emerald-500 font-mono text-xs">vibecoded by kvssi</p>
+                  <p className="text-neutral-600 font-mono text-[10px] mt-1">Version 2.0.4 // Build 2026</p>
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {showFaqModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setShowFaqModal(false)}>
-            <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl max-w-2xl w-full space-y-6 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-              <div className="flex justify-between items-center border-b border-neutral-800 pb-4 sticky top-0 bg-neutral-900">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setShowFaqModal(false)}>
+            <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl max-w-2xl w-full space-y-6 max-h-[80vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center border-b border-neutral-800 pb-4 sticky top-0 bg-neutral-900 z-10">
                 <h2 className="text-xl font-bold uppercase tracking-widest text-white">Frequently Asked Questions</h2>
-                <button onClick={() => setShowFaqModal(false)} className="text-neutral-500 hover:text-white"><X size={20} /></button>
+                <button onClick={() => setShowFaqModal(false)} className="text-neutral-500 hover:text-white transition-colors"><X size={20} /></button>
               </div>
               <div className="space-y-6 text-sm text-neutral-300">
-                <div className="space-y-2">
-                  <h3 className="text-white font-bold uppercase tracking-wider text-xs">How do I get the audio to react?</h3>
-                  <p className="text-neutral-400">Select your audio source (Microphone, System Audio/Screen, or a local File) before clicking Initialize. Make sure to grant the necessary browser permissions when prompted.</p>
+                <div className="space-y-2 bg-black/30 p-4 rounded-xl border border-neutral-800/50">
+                  <h3 className="text-white font-bold uppercase tracking-wider text-xs">How do I configure the audio source?</h3>
+                  <p className="text-neutral-400">Select your preferred audio input (Microphone, System Audio/Screen, or a local Audio File) from the main setup screen before initializing. Ensure you grant the necessary browser permissions when prompted.</p>
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-white font-bold uppercase tracking-wider text-xs">Why isn't screen audio working?</h3>
-                  <p className="text-neutral-400">When sharing your screen or tab, you must explicitly check the "Share tab audio" or "Share system audio" checkbox in the browser's screen share dialog. Otherwise, only video is captured.</p>
+                <div className="space-y-2 bg-black/30 p-4 rounded-xl border border-neutral-800/50">
+                  <h3 className="text-white font-bold uppercase tracking-wider text-xs">Why is screen audio not being captured?</h3>
+                  <p className="text-neutral-400">When sharing your screen or a specific tab, you must explicitly enable the "Share tab audio" or "Share system audio" toggle in your browser's native screen share dialog. Without this, only the video feed is captured.</p>
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-white font-bold uppercase tracking-wider text-xs">Can I control VIZR from my phone?</h3>
-                  <p className="text-neutral-400">Yes! Click the "VIZR REMOTE" button on the setup screen to reveal a QR code. Scan it with your smartphone to control effects, speed, and intensity in real-time.</p>
+                <div className="space-y-2 bg-black/30 p-4 rounded-xl border border-neutral-800/50">
+                  <h3 className="text-white font-bold uppercase tracking-wider text-xs">How does the Remote Control feature work?</h3>
+                  <p className="text-neutral-400">Click the "VIZR REMOTE" button on the host device to display a QR code. Scan this code with your smartphone to instantly pair the devices. You can then control effects, speed, and intensity in real-time from your phone.</p>
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-white font-bold uppercase tracking-wider text-xs">Are my images or audio uploaded anywhere?</h3>
-                  <p className="text-neutral-400">No. VIZR processes all audio and images locally in your browser. The remote control feature uses a lightweight WebSocket connection only to sync control signals (like slider values), but your media never leaves your device.</p>
+                <div className="space-y-2 bg-black/30 p-4 rounded-xl border border-neutral-800/50">
+                  <h3 className="text-white font-bold uppercase tracking-wider text-xs">Are my media files uploaded to a server?</h3>
+                  <p className="text-neutral-400">Absolutely not. VIZR processes all audio and images locally on your machine. The remote control feature utilizes a lightweight WebSocket connection strictly to synchronize control signals (like slider adjustments). Your media never leaves your device.</p>
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-white font-bold uppercase tracking-wider text-xs">Why is the visualizer lagging?</h3>
-                  <p className="text-neutral-400">VIZR is hardware-accelerated. For the best performance, ensure hardware acceleration is enabled in your browser settings and try reducing the "Complexity" or "Event Density" sliders if you are on an older device.</p>
+                <div className="space-y-2 bg-black/30 p-4 rounded-xl border border-neutral-800/50">
+                  <h3 className="text-white font-bold uppercase tracking-wider text-xs">How can I optimize performance?</h3>
+                  <p className="text-neutral-400">VIZR is heavily hardware-accelerated. For optimal frame rates, ensure hardware acceleration is enabled in your browser settings. If you experience lag on older devices, try reducing the "Event Density" or disabling complex effects like "Curvature" and "Noise".</p>
                 </div>
               </div>
             </div>

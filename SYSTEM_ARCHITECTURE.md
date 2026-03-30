@@ -6,18 +6,18 @@ VIZR ist ein browserbasiertes Visual-System, das auf React und WebGL basiert. Es
 
 Das System besteht aus vier Hauptkomponenten:
 1. **Benutzeroberfläche (React):** Verarbeitet Benutzereingaben (Datei-Uploads, Audioquellen-Auswahl, globale Effekt-Regler).
-2. **Audio-Analyzer (Web Audio API):** Analysiert das eingehende Audiosignal in Echtzeit und extrahiert musikalische Merkmale (Kick, Clap, Hi-Hats, Bass Groove).
-3. **Visual Engine (WebGL):** Rendert die hochgeladenen Bilder basierend auf den Audio-Daten und den zugewiesenen Rollen.
+2. **Audio-Analyzer (Web Audio API):** Analysiert das eingehende Audiosignal in Echtzeit und extrahiert musikalische Merkmale (Kick, Clap, Hi-Hats, Bass Groove). Beinhaltet robustes Error-Handling für asynchrone Play/Pause-Events.
+3. **Visual Engine (WebGL):** Rendert die hochgeladenen Bilder basierend auf den Audio-Daten und den zugewiesenen Rollen. Implementiert komplexe Shader-Logik wie "White Transparency" und ein zustandsbasiertes Zoom-System (Hold, Drift, Pulse).
 4. **Backend (Express & Socket.io):** Ein leichtgewichtiges Node.js-Backend, das die Echtzeit-Synchronisation zwischen der Hauptanwendung und der Smartphone-Fernbedienung (VIZR Remote) ermöglicht.
 
 ## Layer-System
 
 VIZR nutzt ein Layer-System, um Bilder intelligent zu kombinieren. Bilder werden nicht einfach übereinandergelegt, sondern in verschiedene Rollen (Layer) eingeteilt:
 
-1. **Background (bg):** Das Hintergrundbild. Es füllt den gesamten Bildschirm aus und reagiert auf langsame, tiefe Frequenzen (Bass Groove).
-2. **Poster (fg/mid):** Das Hauptbild. Es wird im Vordergrund platziert und reagiert auf musikalische Akzente (z.B. Kick-Puls).
-3. **Logo / Overlay:** Schwebende Elemente, Texturen oder Logos. Sie werden kleiner skaliert und reagieren auf hohe Frequenzen (Hi-Hats) oder kurze Akzente (Clap).
-4. **Flash:** Kurze Event-Elemente, die nur bei starken Audio-Peaks (z.B. lauten Kicks oder Drops) sichtbar werden.
+1. **Background (bg):** Das Hintergrundbild. Es füllt den gesamten Bildschirm aus und reagiert auf langsame, tiefe Frequenzen (Bass Groove). Bleibt vom Beat-Zoom unberührt, um räumliche Tiefe zu wahren.
+2. **Poster (fg/mid):** Das Hauptbild. Es wird im Vordergrund platziert und reagiert stark auf musikalische Akzente (voller Beat-Synced Zoom). Helle Bereiche können durch "White Transparency" weich ausgeblendet werden.
+3. **Logo / Overlay:** Schwebende Elemente, Texturen oder Logos. Sie werden kleiner skaliert, reagieren auf hohe Frequenzen (Hi-Hats) und machen den Beat-Zoom nur leicht mit (Parallax-Effekt).
+4. **Flash:** Kurze Event-Elemente, die nur bei starken Audio-Peaks (z.B. lauten Kicks oder Drops) sichtbar werden. Bleiben statisch im Raum.
 
 ## Asset-System
 
@@ -36,6 +36,7 @@ Das System extrahiert nicht nur die Gesamtlautstärke, sondern teilt das Signal 
 ## Remote Control System
 
 VIZR beinhaltet ein Remote-Control-System, das es ermöglicht, die Visuals über ein zweites Gerät (z.B. ein Smartphone) zu steuern. 
-- **Verbindung:** Die Hauptanwendung generiert einen QR-Code mit einer eindeutigen Room-ID. Das Smartphone scannt den Code und verbindet sich über WebSockets (Socket.io) mit demselben Raum.
+- **Verbindung:** Die Hauptanwendung generiert einen QR-Code mit einer eindeutigen Room-ID. Das Smartphone scannt den Code und verbindet sich über WebSockets (Socket.io) mit demselben Raum. Die Room-ID wird im `localStorage` gespeichert, sodass Sessions auch nach einem Reload bestehen bleiben.
+- **Auto-Start & Reconnect:** Sobald sich eine Remote verbindet, starten die Visuals auf dem Host automatisch mit einem weichen Fade-In. Bei Verbindungsabbrüchen versucht die Remote im Hintergrund kontinuierlich, sich neu zu verbinden.
 - **Synchronisation:** Das Backend leitet lediglich Steuerbefehle (Slider-Werte, Button-Klicks, Bild-Uploads) zwischen den Clients weiter. Es werden keine Audiodaten oder großen Bilddateien über das Netzwerk gestreamt (mit Ausnahme von kleinen Bild-Uploads über die Remote, die als Base64-Strings übertragen werden).
 - **Sicherheit:** Da die Hauptverarbeitung lokal im Browser stattfindet, bleibt die Latenz minimal und die Privatsphäre gewahrt.

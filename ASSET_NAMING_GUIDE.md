@@ -1,47 +1,59 @@
 # Asset Naming Guide
 
-VIZR nutzt ein intelligentes Dateinamen-System, um hochgeladenen Bildern automatisch Rollen und Verhaltensweisen zuzuweisen. Du kannst das Verhalten deiner Visuals steuern, indem du bestimmte Tags in den Dateinamen deiner Bilder schreibst.
+VIZR uses a smart naming system to automatically assign roles and behaviors to uploaded images. You can control how your visuals behave by using specific tags in the filenames of your images, or by using the built-in **Asset Editor**.
 
-## Vollständige Erklärung der Tags
+## The Naming System Structure
 
-Tags werden im Dateinamen durch doppelte Unterstriche (`__`) getrennt. Das Format ist:
-`[Rolle]__[Format]__[Farbe]__[Verhalten].jpg`
+Tags are separated by double underscores (`__`) in the filename. The exact format is:
+`[type]__[aspect]__[color]__[behavior].ext`
 
-### 1. Rolle (Role)
-Bestimmt, auf welchem Layer das Bild angezeigt wird.
-- `bg`: Hintergrundbild (füllt den Bildschirm).
-- `fg` oder `poster`: Hauptbild im Vordergrund.
-- `mid`: Mittlere Ebene, oft für zusätzliche Elemente.
-- `overlay` oder `logo`: Schwebende Elemente, Texturen oder Logos (werden kleiner skaliert).
-- `flash`: Kurze Event-Elemente, die nur bei starken Audio-Peaks sichtbar werden.
+### 1. Type (Required)
+Determines which layer the image is displayed on.
+- `bg`: Full screen background images.
+- `poster`: Large visual elements (foreground visuals, posters, main subjects).
+- `overlay`: Floating graphics, logos, or textures (scaled smaller).
+- `logo`: Clean, often transparent graphics.
+- `flash`: Short, event-based visuals.
 
-### 2. Format (Orientation)
-Hilft dem System, das Bildverhältnis zu verstehen (optional, wird oft automatisch erkannt).
-- `portrait`: Hochformat.
-- `landscape`: Querformat.
-- `square`: Quadratisch.
+### 2. Aspect Ratio (Auto-detected)
+Helps the system understand the image proportions.
+- `landscape`: Wider than tall.
+- `portrait`: Taller than wide.
+- `square`: Equal width and height.
 
-### 3. Farbe (Color)
-Gibt dem System Hinweise zur Farbgebung (optional).
-- `bw` oder `mono`: Schwarz-Weiß oder monochrom.
-- `color`: Farbig.
+### 3. Color Profile
+Gives the system hints about the color palette.
+- `mono`: Black and white or grayscale.
+- `accent`: Mostly monochrome with one strong accent color.
+- `color`: Full color.
 
-### 4. Verhalten (Behavior)
-Steuert, wie oft und wann das Bild angezeigt wird.
-- `peak`: Das Bild erscheint bevorzugt bei starken Audio-Ausschlägen (Drops, laute Kicks).
-- `rare`: Das Bild wird seltener ausgewählt.
-- `frequent`: Das Bild wird häufiger ausgewählt.
+### 4. Behavior
+Controls how often and when the image is displayed.
+- `frequent`: The image is selected often.
+- `rare`: The image is selected occasionally.
+- `peak`: The image appears preferentially during strong audio events (kicks, bass drops).
 
-## Beispiele
+## Examples
 
-- `bg__landscape__color.jpg`: Ein farbiges Hintergrundbild im Querformat.
-- `poster__portrait__bw__peak.png`: Ein schwarz-weißes Hauptbild im Hochformat, das bevorzugt bei lauten Audio-Peaks erscheint.
-- `logo__square__rare.png`: Ein quadratisches Logo, das nur selten als Overlay eingeblendet wird.
-- `flash__peak.jpg`: Ein Bild, das nur als kurzer Blitz bei starken Audio-Ausschlägen sichtbar wird.
+- `bg__landscape__color__frequent.jpg`: A full-color background image in landscape format that appears frequently.
+- `poster__portrait__mono__peak.png`: A black-and-white poster image in portrait format that appears during audio peaks.
+- `overlay__square__accent__rare.png`: A square overlay with an accent color that appears rarely.
 
-## Best Practices
+## Asset Editor (Smart Naming)
 
-- **Nutze Tags bewusst:** Überlade deine Dateinamen nicht mit Tags. Nutze sie gezielt, um bestimmte Bilder hervorzuheben (z.B. `peak` für dein bestes Bild).
-- **Mische Formate:** Lade eine Mischung aus Hoch- und Querformaten hoch, damit das System abwechslungsreiche Kompositionen erstellen kann.
-- **Transparenz für Overlays:** Nutze PNG-Bilder mit transparentem Hintergrund für Logos und Overlays, damit sie sich gut in die Szene einfügen.
-- **Ohne Tags:** Wenn du keine Tags verwendest, versucht VIZR, die Rolle anhand des Bildformats (Hochformat = Poster, Querformat = Background, Quadrat = Overlay) automatisch zu erraten.
+VIZR includes a built-in **Asset Editor** that helps you prepare your images and automatically generates these filenames without manual renaming.
+
+### Features of the Asset Editor:
+- **Preview:** View your uploaded images in a large, clear view.
+- **Original Filename:** Keep track of the origin of your files.
+- **Smart Tagging:** Easily select the `Type`, `Aspect`, `Color`, and `Behavior` using a clean UI.
+- **Auto-Analysis:** The system automatically detects the aspect ratio (`landscape`, `portrait`, `square`) of your images.
+- **Filename Generator:** The editor automatically generates an optimized filename based on your selections.
+
+### Workflow:
+1. Click on **ASSET EDITOR** on the start screen.
+2. Select an image from the list on the left.
+3. Adjust the tags (Type, Aspect, Color, Behavior) on the right.
+4. Click **USE IN VISUALIZER** to jump directly into the visualizer with the configured assets.
+
+The Asset Editor is the fastest way to ensure your assets work exactly as you want them to in the visualizer.

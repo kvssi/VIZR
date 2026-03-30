@@ -39,12 +39,22 @@ Ja. Wähle dazu die Audioquelle "Screen Audio" (Bildschirm-Audio). Dein Browser 
 ### Kann ich lokale Audiodateien (MP3, WAV) verwenden?
 Ja. Wähle als Audioquelle "File" und lade deine Audiodatei hoch. VIZR spielt die Datei ab und reagiert direkt auf das Audiosignal.
 
+### Was bewirkt der "White Transp." Toggle?
+Die "White Transparency" ist ein intelligenter Shader-Effekt. Wenn er aktiviert ist, werden sehr helle oder weiße Bereiche in deinen Vordergrund- (Poster) und Overlay-Bildern automatisch transparent gemacht. Das ist besonders nützlich, wenn du Logos oder Motive hast, die auf einem weißen Hintergrund liegen (z.B. JPGs), und du möchtest, dass sie sich nahtlos in den dunkleren Hintergrund einfügen, ohne wie harte Rechtecke auszusehen.
+
+### Was macht der "Drift Offset" Toggle?
+Der "Drift Offset" fügt einen sehr subtilen, intervallbasierten Bildversatz hinzu. Alle paar Sekunden verschiebt sich das Bild minimal horizontal und/oder vertikal, reagiert dabei leicht auf die Bass-Energie der Musik und kehrt dann weich in die Ausgangsposition zurück. Das verleiht den Visuals ein organisches, leicht instabiles Gefühl, ohne zu dominieren oder sichtbare "Sprünge" zu verursachen.
+
+### Warum zoomt das Bild nicht bei jedem Beat gleich?
+VIZR nutzt ein "Beat-Synced Zoom" System mit einem musikalischen 4-Beat-Pattern. Anstatt bei jedem Kick-Drum mechanisch hinein- und herauszuzoomen, variiert das System die Reaktion: Mal gibt es einen starken Puls, mal einen subtilen Shift, und manchmal pausiert die Bewegung (Hold), bevor das Bild langsam wieder herausdriftet (Drift). Das sorgt für einen organischen, fließenden Groove, der sich natürlicher anfühlt.
+
 ## Steuerung & Remote
 
 ### Wie funktioniert die Smartphone-Fernbedienung (VIZR Remote)?
-Klicke im Setup-Bildschirm auf "VIZR REMOTE". Es erscheint ein QR-Code. Scanne diesen mit der Kamera deines Smartphones. Es öffnet sich eine mobile Web-App, mit der du die Visuals live steuern kannst (z.B. Effekte anpassen, Bilder manuell wechseln oder neue Bilder vom Handy hochladen).
+Klicke im Setup-Bildschirm auf "VIZR REMOTE". Es erscheint ein QR-Code. Scanne diesen mit der Kamera deines Smartphones. Es öffnet sich eine mobile Web-App, mit der du die Visuals live steuern kannst (z.B. Effekte anpassen, Bilder manuell wechseln oder neue Bilder vom Handy hochladen). Die Verbindung startet die Visuals automatisch, merkt sich deine Session und verbindet sich bei Abbrüchen selbstständig neu.
 
-### Was machen die Global Effect Sliders?
+### Was machen die FX Settings (früher Global Effect Sliders)?
+- **Global:** Ein Master-Regler für die allgemeine Intensität der Effekte.
 - **Complexity:** Steuert, wie viele verschiedene Glitch-Effekte gleichzeitig auftreten können.
 - **Event Density:** Bestimmt, wie oft zufällige Glitch-Events (unabhängig von der Musik) ausgelöst werden.
 - **RGB Shift:** Regelt die Stärke der Farbverschiebung (Rot/Grün/Blau) an den Rändern der Bilder.
