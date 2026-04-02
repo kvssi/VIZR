@@ -48,7 +48,7 @@ Die Musik steuert die Intensität des Zyklus:
 -   **Retro-Futuristic Liquid Art:** Der Look ist inspiriert von Space-Age Design der 70er Jahre – glänzendes Acryl, geschmolzenes Plastik und psychedelische Motion Graphics.
 -   **Glossy Surfaces:** Scharfe Highlights und Fresnel-Effekte verleihen den Formen eine dreidimensionale, physische Präsenz.
 -   **Atmosphärische Tiefe:** Mehrere Ebenen von Fluid-Feldern und ein subtiles "Atmen" des Hintergrunds erzeugen einen tiefen, immersiven Raum.
--   **Atmospheric Fill:** Um harte schwarze Kanten bei starken Rotationen oder Zooms zu vermeiden, nutzt LAVA SPACE eine **bildbasierte Hintergrundfüllung**. Diese leitet weiche Farbatmosphären aus dem Originalbild ab und füllt den Raum hinter den flüssigen Formen. Dies sorgt für visuelle Kontinuität, selbst bei extremen Transformationen.
+-   **Atmospheric Fill (Refined):** Um harte schwarze Kanten bei starken Rotationen, Zooms oder Verschiebungen zu vermeiden, nutzt LAVA SPACE eine **verbesserte bildbasierte Hintergrundfüllung**. Diese leitet weiche, abgedunkelte und weichgezeichnete Farbatmosphären aus dem Originalbild ab und füllt den Raum hinter den flüssigen Formen nahtlos aus. Dies sorgt für visuelle Kontinuität und ein cinematisches Gefühl, selbst bei extremen Transformationen.
 
 LAVA SPACE ist ideal für Künstler, die ihre Visuals nicht nur als Hintergrund, sondern als sich ständig veränderndes, lebendiges Kunstwerk präsentieren möchten, das immer wieder den Kern ihrer Identität (das Logo oder Bild) offenbart.
 
@@ -130,10 +130,10 @@ Dieser Modus simuliert die Ästhetik alter analoger Röhrenfernseher (CRT) und a
 
 ### Verhalten: 90% Stabil, 10% Glitch
 
-Ein wichtiges Designprinzip dieses Modus ist, dass er **nicht dauerhaft glitchy** ist. 
+Ein wichtiges Designprinzip dieses Modus ist, dass er **nicht dauerhaft glitchy** ist, aber durch das **Dual Event Model** sehr dynamisch auf die Musik reagiert.
 
-- **Die Basis (90% der Zeit):** Das Bild driftet langsam und organisch (gesteuert durch den Bass Groove). Die CRT-Effekte, das Rauschen und der RGB-Shift sind subtil. Das System wirkt wie ein alter Fernseher, der ein relativ stabiles, aber leicht verrauschtes Signal empfängt.
-- **Die Events (10% der Zeit):** Plötzlich auftretende, kurze Störungen durchbrechen die Ruhe. Diese Glitches werden entweder durch starke Audio-Peaks (z.B. ein harter Kick oder Drop) oder zufällig (alle 1 bis 5 Sekunden) ausgelöst.
+- **Die Basis (Smoothed Envelopes):** Das Bild driftet langsam und organisch (gesteuert durch den geglätteten Bass Groove). Die CRT-Effekte, das Rauschen und der RGB-Shift sind subtil. Das System wirkt wie ein alter Fernseher, der ein relativ stabiles, aber leicht verrauschtes Signal empfängt.
+- **Die Events (Raw Pulses):** Plötzlich auftretende, kurze Störungen durchbrechen die Ruhe. Diese Glitches werden durch harte Audio-Peaks (z.B. ein roher Kick oder Drop) oder strukturelle Akzente (z.B. jeder 4., 8. oder 16. Beat) ausgelöst. Die Intensität und Dichte dieser Events wurde deutlich erhöht, um den Modus lebendiger, performativer und charakterstärker zu machen.
 
 ### Event-basierte Glitches
 
@@ -151,9 +151,14 @@ Neben den großen Glitch-Events reagiert der Modus kontinuierlich auf die Musik:
 - **Clap/Snare:** Verursacht ein kurzes horizontales Knistern und einen kurzen RGB-Split.
 - **Hi-Hats:** Lassen die Scanlines leicht funkeln und modulieren das Hintergrundrauschen.
 
-### White Transparency (Smart Blending)
+### Transparency Modes (Smart Blending)
 
-Ein spezielles Feature des Shaders ist die **White Transparency**. Wenn aktiviert, berechnet das System die Helligkeit (Luminanz) der Pixel in Poster- und Overlay-Layern. Sehr helle oder weiße Bereiche werden fließend transparent gemacht. Das erlaubt es, Bilder mit weißem Hintergrund (wie Logos oder isolierte Motive) nahtlos in dunklere Hintergründe zu integrieren, ohne dass sie wie harte Rechtecke wirken.
+Ein spezielles Feature des Shaders sind die **Transparency Modes**. Das System berechnet die Helligkeit (Luminanz) der Pixel in Overlay-Layern. 
+- **White Transparent:** Sehr helle oder weiße Bereiche werden fließend transparent gemacht.
+- **Black Transparent:** Sehr dunkle oder schwarze Bereiche werden fließend transparent gemacht.
+- **Normal:** Das Bild wird ohne Transparenz-Keying gerendert.
+
+Das erlaubt es, Bilder mit weißem oder schwarzem Hintergrund (wie Logos oder isolierte Motive) nahtlos in die Szene zu integrieren. Die Deckkraft (Opacity) bleibt dabei für alle Modi unabhängig steuerbar.
 
 ### Drift Offset
 
@@ -162,7 +167,7 @@ Ein subtiler, intervallbasierter Bildversatz, der das Bild organisch und leicht 
 ### Live-Steuerung (FX Settings & Toggles)
 
 Die Intensität und Häufigkeit dieser Effekte lässt sich über das Web-Interface oder die VIZR Remote-App in Echtzeit anpassen:
-- **Toggles:** Schalte gezielt Glitch, VHS, Curvature, Noise, Flicker, RGB Split, White Transparency und Drift Offset an oder aus.
+- **Toggles:** Schalte gezielt Glitch, VHS, Curvature, Noise, Flicker, RGB Split und Drift Offset an oder aus.
 - **Global:** Ein Master-Regler für die allgemeine Intensität der Effekte.
 - **Complexity:** Steuert die Überlagerung und Intensität der Glitches.
 - **Event Density:** Beeinflusst, wie oft zufällige Glitch-Events (unabhängig von der Musik) auftreten.
@@ -171,55 +176,116 @@ Die Intensität und Häufigkeit dieser Effekte lässt sich über das Web-Interfa
 
 Dieser Modus ist ideal für elektronische Musik (Techno, House, Electro), da er die rhythmische Struktur der Musik in eine rohe, analoge visuelle Sprache übersetzt.
 
-## CONTOUR MODE (Graphic & Structural Dance)
+## CONTOUR MODE (Structural Graphic System)
 
-Der **CONTOUR Mode** ist ein grafischer, skulpturaler und rhythmisch-struktureller Modus. Er bricht das Quellbild in seine Bestandteile auf und lässt es als dynamisches, geometrisches System "tanzen".
+Der **CONTOUR Mode** ist ein grafisches, strukturelles und räumliches System. Er transformiert das Quellbild in eine Choreografie aus beweglichen Formen, Paneelen und geschichteten Flächen, die sich rhythmisch zerlegen und wieder zusammensetzen.
 
-### Visuelle Identität
+### Visuelle Erfahrung & Struktur
 
-- **Topografische Linien & Isobands:** Das Bild wird in Höhenschichten unterteilt, die wie eine pulsierende Landkarte wirken.
-- **Struktureller Tanz:** Das Bild ist nicht statisch, sondern bewegt sich, verschiebt sich und "bounced" im Takt der Musik.
-- **Slicing & Shifting:** Präzise horizontale und vertikale Schnitte versetzen Bildsegmente rhythmisch gegeneinander.
-- **Digital Relief & Depth:** Mehrere Ebenen von Konturen erzeugen eine pseudo-dreidimensionale Tiefe mit Parallaxe-Effekten.
+Im Gegensatz zu einfachen statischen Overlays basiert dieser Modus auf einer **lebendigen strukturellen Transformation** des Quellmaterials:
 
-### Bewegungs-Sprache (Motion Language)
+- **Multiple Shape Families:** CONTOUR nutzt verschiedene großflächige strukturelle Form-Familien, die im Laufe der Zeit variieren:
+  - **STRIPS:** Breite horizontale Slicing-Effekte, die das Bild architektonisch zerteilen.
+  - **PANELS:** Massive vertikale Flächen, die sich wie schwere Bühnenelemente verschieben.
+  - **SLABS:** Große rechteckige, bildbasierte Blöcke, die eine grafische Dekonstruktion erzeugen.
+  - **RELIEF:** Gestufte, bildgesteuerte Ebenen, die das Bild in eine topografische Relief-Struktur verwandeln.
+- **Shape Lifecycle:** Jede Form durchläuft einen kontrollierten Lebenszyklus (Erscheinen → Wachsen/Verschieben → Halten → Transformieren → Auflösen). Dies ersetzt kleinteilige, hektische Muster durch eine fließende, choreografierte Bewegung.
+- **Source Visibility Cycle:** Der Modus wechselt ständig zwischen verschiedenen Zuständen der Erkennbarkeit:
+  - **CLEAR SOURCE:** Das Bild ist weitgehend lesbar und stabil.
+  - **PARTIAL CONTOUR:** Erste strukturelle Ansätze verformen das Bild dezent durch breite Bänder.
+  - **STRONG STRUCTURE:** Das Bild wird massiv in seine grafischen und architektonischen Bestandteile zerlegt.
+  - **RETURN / REVEAL:** Die Fragmente fügen sich wieder zu einem klaren Bild zusammen.
+- **Image-Derived Structure:** Die Formen entstehen nicht als Overlay-Muster, sondern werden direkt aus den Kontrastmassen und Helligkeitszonen des Quellbildes abgeleitet.
+- **Structural Hatching:** Anstelle von dekorativen Punkt-Rastern nutzt CONTOUR ein strukturelles Hatching (Schraffur), das die räumliche Form der Bildsegmente unterstreicht.
 
-- **Rhythmic Bounce:** Die gesamte Komposition "drückt" und "springt" synchron zu Kick-Drum-Impulsen.
-- **Structural Slicing:** Blockartige Verschiebungen (Slices) in horizontaler und vertikaler Richtung, gesteuert durch Mitten und Bass.
-- **Topographic Drift:** Konturschichten driften in entgegengesetzte Richtungen und erzeugen räumliche Dynamik.
-- **Erosion Shifts:** Plötzliche strukturelle Neuanordnungen bei Audio-Peaks.
+### Audio-Reaktive Transformation
 
-### Effekt-Familien (Controls)
+Die Musik steuert die physikalische Choreografie der Bildstruktur in gewichteten, rhythmischen Schichten:
 
-1. **Structure:** Steuert die Komplexität und Dichte der topografischen Linien.
-2. **Slice Intensity:** Justiert die Stärke der blockartigen horizontalen/vertikalen Verschiebungen.
-3. **Relief Depth:** Bestimmt die wahrgenommene 3D-Tiefe und Schattenintensität der Konturen.
-4. **Shift:** Kontrolliert die Geschwindigkeit und den Bereich der strukturellen Neuanordnungen.
-5. **Density:** Reguliert die Skalierung des Halbton-Rasters und die Liniendicke.
-6. **Bounce:** Setzt die Intensität des rhythmischen Pulses und des "Push"-Effekts.
+- **Kick / Low (Bounce & Push):** Erzeugt einen energetischen Impuls aus der Mitte, der die Paneele und Flächen kurzzeitig nach außen drückt.
+- **Bass (Structural Motion & Depth):** Bestimmt die großflächige Verschiebung der Segmente und die Intensität des räumlichen Reliefs.
+- **Mitten (Slicing & Reassembly):** Steuern das Zerlegen der Paneele und die Richtungswechsel der strukturellen Bewegungen.
+- **Höhen (Detail & Density):** Beeinflussen die Feinheit des grafischen Rasters, die Linien-Vibration und Detail-Bewegungen an den Kanten.
 
-### Audio-Reaktivität
+### Controls & Toggles
 
-- **Low/Kick:** Treibt den rhythmischen Bounce, den "Push" und den strukturellen Puls an.
-- **Bass:** Steuert das gerichtete Shifting großer topografischer Bänder.
-- **Mitten:** Lösen Slicing-Effekte, strukturelle Umordnungen und Erosionen aus.
-- **Höhen:** Animieren feine Linienbewegungen und Änderungen der Rasterdichte.
+Die Steuerung ist auf die grafische und strukturelle Natur von CONTOUR optimiert:
 
-### Bild-Eignung
+- **Structure (Global):** Reguliert die allgemeine Intensität der strukturellen Verformung und die Komplexität des Systems.
+- **Raster Density (Smooth):** Steuert die Feinheit des grafischen Rasters und der Konturlinien.
+- **Structural Motion (Motion):** Bestimmt die Grundgeschwindigkeit und Weite der Form-Bewegungen.
+- **Strip Count (Density):** Ändert die Anzahl der Segmente (von groben Blöcken bis zu feinen Linien).
+- **Reassembly (Speed):** Kontrolliert, wie schnell und wie oft sich das Bild wieder zu einem Ganzen zusammenfügt.
 
-CONTOUR eignet sich besonders für:
-- Porträts (erzeugt maskenartige, skulpturale Effekte).
-- Architektur & Geometrie (betont die räumliche Struktur).
-- Logos (verwandelt sie in technische Blaupausen oder Reliefs).
+**Spezielle Toggles:**
+- **Shatter (Glitch):** Erzeugt rhythmische Brüche und Fragmente in der Struktur für einen aggressiveren Look.
+- **Raster Layer (VHS):** Aktiviert eine zusätzliche Ebene mit feinen grafischen Texturen, die der Struktur folgen.
+- **Plane Shift (Curve):** Steuert das räumliche Kippen und Verschieben der Bildebenen.
+- **Depth Noise (Noise):** Fügt der Struktur eine zusätzliche Ebene aus räumlichem Rauschen hinzu.
+- **Bounce (Flicker):** Aktiviert den Kick-gesteuerten energetischen Push aus dem Zentrum.
+- **Structural Shift (RGB Split):** Erzeugt farbliche Verschiebungen an den Kanten der beweglichen Segmente.
+- **Structural Drift (Drift Offset):** Aktiviert eine langsame, stetige Driftbewegung der gesamten Struktur.
 
-### Farbmodi
-
-1. **PRINT BLACK:** Kontrastreicher Schwarz-Weiß-Look (Siebdruck-Ästhetik).
-2. **TOPO RELIEF:** Architektonische Farben mit harten Lichtkanten.
-3. **SPECTRAL CONTOUR:** Spektrale Farbverläufe entlang der Konturlinien.
-4. **MONOCHROME:** Klassische einfarbige Relief-Grafiken.
+CONTOUR ist ideal für Tracks mit klarer, architektonischer Struktur, bei denen das Bild als lebendige grafische Materie agieren soll, die ständig zwischen Realität und Abstraktion tanzt.
 
 ### Unterschied zu anderen Modi
 - Im Gegensatz zu **SIGNAL GLITCH** liegt der Fokus auf struktureller Neuordnung statt auf digitaler Korruption.
-- Im Gegensatz zu **LAVA SPACE** nutzt CONTOUR starre, geometrische Schnitte statt organischer Verformung.
-- Im Gegensatz zu **REPRESENT** abstrahiert es das Bild zu einer skulpturalen Grafik.
+- Im Gegensatz zu **LAVA SPACE** nutzt CONTOUR geometrische Schnitte und Flächen statt organischer Verformung.
+- Im Gegensatz zu **REPRESENT** wird das Bild selbst zum grafischen Akteur.
+---
+
+## KALEIDOSCOPE MODE (Spatial Optical Device)
+
+Der **KALEIDOSCOPE Mode** ist ein immersiver, räumlicher und hypnotischer Modus. Er transformiert das Quellbild in ein lebendiges, sich ständig reorganisierendes geometrisches Universum, das das Gefühl vermittelt, durch ein echtes Kaleidoskop-Spielzeug zu blicken.
+
+### Visuelle Erfahrung & Räumlichkeit
+
+Im Gegensatz zu einfachen Spiegel-Filtern erzeugt dieser Modus eine echte **räumliche Tiefe** und ein Gefühl von **Immersion**:
+
+- **Hypnotic Rotation:** Die Rotation wurde grundlegend repariert. Eine neue Steuerkurve sorgt dafür, dass niedrige Werte fast stillstehen oder nur einen kaum wahrnehmbaren Drift erzeugen. Erst bei hohen Werten entsteht eine deutliche, aber stets elegante Drehung.
+- **Ripple & Breathing:** Radiale Wellenbewegungen und ein rhythmisches "Atmen" des Musters aus dem Zentrum heraus erzeugen eine lebendige, pulsierende Struktur.
+- **Reassembly & Interlocking:** Die Spiegelsegmente reorganisieren sich ständig. Fragmente gleiten ineinander, überlappen sich und bilden neue, komplexe geometrische Konfigurationen.
+- **Bounce & Drift:** Interne Formen reagieren elastisch auf den Groove (Kick), während ein langsamer Pattern-Drift für ständige Bewegung sorgt, selbst wenn die Rotation auf Null steht.
+- **Spatial Tunnel Effect:** Das Bild wird in einen unendlichen Lichttunnel projiziert. Durch Parallaxe-Effekte bewegen sich innere Bildbereiche langsamer als äußere, was eine starke Tiefenwirkung erzeugt.
+- **Evolving Shapes:** Die internen "Spiegel-Fragmente" morphen dynamisch zwischen verschiedenen geometrischen Familien (Ovale, Blobs, Rechtecke, Streifen).
+- **Optical Layers:** Logos und Overlays werden nicht einfach flach darübergelegt, sondern als räumliche optische Schichten in das Kaleidoskop integriert. Sie erscheinen mit eigener Tiefe und reagieren auf die Lichtbrechung im Tunnel.
+
+### Audio-Reaktive Transformation
+
+Die Musik steuert die physikalischen Eigenschaften des optischen Geräts:
+
+- **Kick (Center Pulse & Zoom):** Jeder Kick-Schlag löst eine kraftvolle Expansion aus der Mitte aus. Der Tunnel weitet sich rhythmisch ("Breathing").
+- **Bass (Tunnel Depth & Rotation):** Der Bass-Groove bestimmt die wahrgenommene Tiefe des Tunnels und die Geschwindigkeit der radialen Drehung.
+- **Mitten (Shape Morph):** Steuern das Ineinanderfließen und Verformen der geometrischen Fragmente.
+- **Höhen (Shimmer):** Erzeugen ein feines, hochfrequentes Glitzern und Lichtreflexe auf den Kanten der Spiegel.
+
+### Controls & Toggles
+
+Die Steuerung ist auf die spezifischen Kaleidoskop-Parameter optimiert:
+
+- **Mirror Depth (Global):** Reguliert die allgemeine Intensität der Spiegelung und die Komplexität des Musters.
+- **Rotation (Motion):** Bestimmt die Grundgeschwindigkeit der radialen Drehung und den organischen Drift.
+- **Sides (Density):** Ändert die Anzahl der Spiegelsegmente (von 4 bis 16).
+- **Pattern Drift (Speed):** Steuert die Geschwindigkeit, mit der das Bildmaterial durch die Spiegelsegmente gleitet.
+- **Shimmer (Smooth):** Verfeinert das hochfrequente Glitzern und die Detailtiefe.
+
+**Spezielle Toggles:**
+- **Symmetry Break (Glitch):** Erzeugt rhythmische Brüche in der perfekten Symmetrie für einen glitchigen, organischen Look.
+- **Radial Zoom (Noise):** Koppelt den Zoom-Faktor und die Tunnel-Weitung an die Audio-Energie.
+- **Center Lock (Curve):** Fixiert das Zentrum des Musters oder lässt es durch Audio-Impulse organisch verformen.
+- **Multi Layer (VHS):** Aktiviert eine zweite, tiefere Ebene des Kaleidoskops für maximale räumliche Komplexität.
+- **Depth Logo (Flicker):** Integriert das Logo als räumliches Element mit eigener Tiefenebene im Tunnel.
+- **Overlay Merge (RGB Split):** Spiegelt und blendet Overlays direkt in das Kaleidoskop-Muster ein, statt sie nur darüberzulegen.
+
+KALEIDOSCOPE ist ideal für immersive, psychedelische Erlebnisse und Tracks mit starkem rhythmischem Fokus, bei denen die visuelle Symmetrie und räumliche Tiefe die musikalische Struktur unterstreichen soll.
+
+---
+
+## Rendering Stability & Fallbacks (Repair Pass)
+
+Um eine unterbrechungsfreie visuelle Erfahrung zu gewährleisten, verfügt VIZR über ein robustes **Rendering-Stabilitäts-System**:
+
+1. **Global Safety Fallback:** Der Renderer überwacht ständig den finalen Output. Sollte eine komplexe Shader-Berechnung (z.B. durch extreme Parameter-Kombinationen) zu einem fast schwarzen Bild führen, wird automatisch eine gedimmte Version des Original-Posters eingeblendet. Dies verhindert "Black Screens" im Live-Einsatz.
+2. **Stable Background Fill:** Bei starken Transformationen (Zoom, Rotation, Slicing) nutzt das System eine stabilisierte Hintergrundfüllung, die auf den ursprünglichen Bildkoordinaten basiert. Dadurch entstehen keine schwarzen Lücken an den Rändern, selbst wenn das Hauptbild stark verformt wird.
+3. **Parameter Guarding:** Alle kritischen Shader-Parameter (wie Zoom-Level, Segment-Anzahl oder radiale Zoom-Faktoren) sind durch Sicherheits-Grenzwerte geschützt, um Divisionen durch Null oder visuelle Kollapse zu vermeiden.
+4. **Mode-Aware Debugging:** Ein integriertes (temporäres) Debug-Logging überwacht im Hintergrund den aktiven Modus, die Anzahl der geladenen Assets und die Sichtbarkeit der Layer, um Fehler im Live-Betrieb schnell identifizieren zu können.

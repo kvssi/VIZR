@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Mic, MicOff, Play, Pause, Square, Maximize, Image as ImageIcon, X, MonitorUp, FileAudio, Smartphone, Dices, Zap, RefreshCw, Info, Wifi, Activity } from 'lucide-react';
+import { Upload, Mic, MicOff, Play, Pause, Square, Maximize, Image as ImageIcon, X, MonitorUp, FileAudio, Smartphone, Dices, Zap, RefreshCw, Info, Wifi, Activity, Trash2, Plus } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { QRCodeSVG } from 'qrcode.react';
 import { RemoteControl } from './RemoteControl';
 import { Conductor } from './conductor';
-import { MusicalState, SignalFeatures, MusicalContext } from './types';
+import { MusicalState, SignalFeatures, MusicalContext, ControlState, defaultControlState } from './types';
 
 const ToggleSwitch = ({ label, checked, onChange }: { label: string, checked: boolean, onChange: (checked: boolean) => void }) => (
   <label 
@@ -24,7 +24,7 @@ const ToggleSwitch = ({ label, checked, onChange }: { label: string, checked: bo
   </label>
 );
 
-const APP_VERSION = "1.5";
+const APP_VERSION = "2.0 beta";
 
 const AudioLevelMeter = ({ mode, deviceId, file, onError, onClearFile }: { mode: 'mic' | 'ambient' | 'screen' | 'file', deviceId?: string, file?: File, onError?: (err: string | null) => void, onClearFile?: () => void }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -156,17 +156,15 @@ const AudioLevelMeter = ({ mode, deviceId, file, onError, onClearFile }: { mode:
       } catch (err: any) {
         console.error("Preview audio error:", err);
         if (onError) {
-          if (err.name === 'NotAllowedError' || err.message?.includes('Permission denied')) {
+          const isIframe = window.self !== window.top;
+          if (mode === 'screen' && isIframe) {
+            onError("Screen capture is restricted within the preview iframe. Please open the application in a new tab using the 'Open in New Tab' button below to use this feature.");
+          } else if (err.name === 'NotAllowedError' || err.message?.includes('Permission denied')) {
             onError("Permission denied by user. Please allow access to use this feature.");
           } else if (err.message?.includes('No audio track found')) {
             onError(err.message);
           } else if (mode === 'screen') {
-            const isIframe = window.self !== window.top;
-            if (isIframe) {
-              onError("Screen capture is restricted within the preview iframe. Please open the application in a new tab using the 'Open in New Tab' button below to use this feature.");
-            } else {
-              onError("Screen capture failed. Please ensure you have granted permission and are sharing audio.");
-            }
+            onError("Screen capture failed. Please ensure you have granted permission and are sharing audio.");
           } else {
             onError("Microphone access was denied. Please allow microphone access or try opening in a new tab.");
           }
@@ -401,6 +399,10 @@ class AudioAnalyzer {
       }
     } catch (e: any) {
       console.error("Audio access denied", e);
+      const isIframe = window.self !== window.top;
+      if (mode === 'screen' && isIframe) {
+        throw new Error("Screen capture is restricted within the preview iframe. Please open the app in a new tab (top right icon) to use this feature.");
+      }
       if (e.message && e.message.includes("No audio track found")) {
         throw e;
       }
@@ -408,7 +410,7 @@ class AudioAnalyzer {
         throw new Error("Permission denied by user. Please allow access to use this feature.");
       }
       if (mode === 'screen') {
-        throw new Error("Screen capture is blocked in this preview. Please open the app in a new tab (top right icon) to use this feature.");
+        throw new Error("Screen capture failed. Please ensure you have granted permission and are sharing audio.");
       } else {
         throw new Error("Microphone access was denied. Please allow microphone access or try opening in a new tab.");
       }
@@ -549,8 +551,6 @@ export interface VisualOptions {
   enableNoise: boolean;
   enableFlicker: boolean;
   enableRGBSplit: boolean;
-  enableWhiteTransparency: boolean;
-  enableBlackTransparency: boolean;
   enableDriftOffset: boolean;
   enableBlobDynamics: boolean;
   globalEffects: number;
@@ -558,6 +558,9 @@ export interface VisualOptions {
   motionAmount: number;
   eventDensity: number;
   transitionSpeed: number;
+  overlayEnabled: boolean;
+  overlayTransparencyMode: 'normal' | 'black' | 'white';
+  overlayOpacity: number;
 }
 
 const transparentImg = new Image();
@@ -575,7 +578,7 @@ class VisualEngine {
   audioMode: 'mic' | 'ambient' | 'screen' | 'file';
   deviceId?: string;
   audioFile?: File;
-  visualMode: 'signal-glitch' | 'lava-space' | 'represent' | 'contour';
+  visualMode: 'signal-glitch' | 'lava-space' | 'represent' | 'contour' | 'kaleidoscope';
   colorMode: string;
   
   options: VisualOptions = {
@@ -585,15 +588,16 @@ class VisualEngine {
     enableNoise: true,
     enableFlicker: true,
     enableRGBSplit: true,
-    enableWhiteTransparency: false,
-    enableBlackTransparency: false,
     enableDriftOffset: false,
     enableBlobDynamics: true,
-    globalEffects: 0.8,
+    globalEffects: 0.9,
     flickerAmount: 0.5,
-    motionAmount: 0.5,
-    eventDensity: 0.5,
-    transitionSpeed: 0.5
+    motionAmount: 0.6,
+    eventDensity: 0.7,
+    transitionSpeed: 0.5,
+    overlayEnabled: true,
+    overlayTransparencyMode: 'normal',
+    overlayOpacity: 100
   };
   
   bgAssets: AssetItem[] = [];
@@ -607,12 +611,6 @@ class VisualEngine {
   overlayIndex: number = 0;
   logoIndex: number = 0;
   flashIndex: number = 0;
-  
-  bgTex: WebGLTexture;
-  posterTex: WebGLTexture;
-  overlayTex: WebGLTexture;
-  logoTex: WebGLTexture;
-  flashTex: WebGLTexture;
 
   time: number = 0;
   zoomState: 'HOLD' | 'DRIFT' | 'PULSE' = 'DRIFT';
@@ -642,6 +640,9 @@ class VisualEngine {
   glitchTime: number = 0;
   glitchIntensity: number = 0;
   glitchDuration: number = 0;
+  signalGlitchBounce: number = 0;
+  signalGlitchRecoil: number = 0;
+  postDropEnergy: number = 0;
   
   isBuildup: boolean = false;
   buildupValue: number = 0;
@@ -649,6 +650,12 @@ class VisualEngine {
   layerVisibility: number[] = [1, 1, 1, 1];
   posterZoomLevel: number = 1.0;
   posterCrop: {x: number, y: number} = {x: 0, y: 0};
+
+  // Macro States
+  macroBuildUp: boolean = false;
+  macroTension: boolean = false;
+  macroDrop: boolean = false;
+  macroExtraBounce: boolean = false;
 
   lavaState: number = 0;
   lavaNextState: number = 0;
@@ -665,13 +672,29 @@ class VisualEngine {
   representWaveColor: number = 0; // 0: blue, 1: red
   nextRepresentEventTime: number = 0;
 
+  kaleidoscopeRotation: number = 0;
+  kaleidoscopeDrift: {x: number, y: number} = {x: 0, y: 0};
+  kaleidoscopeTunnelDepth: number = 0;
+  kaleidoscopeCenterPulse: number = 0;
+  kaleidoscopeShapeMorph: number = 0;
+  kaleidoscopeShapeType: number = 0;
+  kaleidoscopeTransitionFade: number = 1.0;
+  
+  contourStripOffset: number = 0;
+  contourPlaneShift: number = 0;
+  contourReassembly: number = 1.0;
+  contourBounce: number = 0;
+  contourShatter: number = 0;
+  contourRasterDensity: number = 1.0;
+  contourReliefDepth: number = 0.5;
+
   constructor(
     canvas: HTMLCanvasElement, 
     assets: AssetItem[], 
     audioMode: 'mic' | 'ambient' | 'screen' | 'file', 
     deviceId: string | undefined, 
     audioFile: File | undefined,
-    visualMode: 'signal-glitch' | 'lava-space' | 'represent' | 'contour',
+    visualMode: 'signal-glitch' | 'lava-space' | 'represent' | 'contour' | 'kaleidoscope',
     colorMode: string,
     onError?: (err: Error) => void
   ) {
@@ -703,12 +726,6 @@ class VisualEngine {
     this.overlayIndex = Math.floor(Math.random() * this.overlayAssets.length);
     this.logoIndex = Math.floor(Math.random() * this.logoAssets.length);
     this.flashIndex = Math.floor(Math.random() * this.flashAssets.length);
-
-    this.bgTex = this.gl.createTexture()!;
-    this.posterTex = this.gl.createTexture()!;
-    this.overlayTex = this.gl.createTexture()!;
-    this.logoTex = this.gl.createTexture()!;
-    this.flashTex = this.gl.createTexture()!;
     
     if (audioMode !== 'ambient') {
       this.audioAnalyzer = new AudioAnalyzer();
@@ -727,22 +744,26 @@ class VisualEngine {
     this.render();
   }
 
-  updateTextures(type?: 'bg' | 'poster' | 'overlay' | 'logo' | 'flash') {
+  textureCache: Map<HTMLImageElement, WebGLTexture> = new Map();
+
+  getTexture(img: HTMLImageElement): WebGLTexture {
     const gl = this.gl;
-    if (!gl) return;
-    const bindImage = (tex: WebGLTexture, img: HTMLImageElement) => {
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-    };
-    if (!type || type === 'bg') bindImage(this.bgTex, this.bgAssets[this.bgIndex].image);
-    if (!type || type === 'poster') bindImage(this.posterTex, this.posterAssets[this.posterIndex].image);
-    if (!type || type === 'overlay') bindImage(this.overlayTex, this.overlayAssets[this.overlayIndex].image);
-    if (!type || type === 'logo') bindImage(this.logoTex, this.logoAssets[this.logoIndex].image);
-    if (!type || type === 'flash') bindImage(this.flashTex, this.flashAssets[this.flashIndex].image);
+    if (this.textureCache.has(img)) {
+      return this.textureCache.get(img)!;
+    }
+    const tex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    this.textureCache.set(img, tex);
+    return tex;
+  }
+
+  updateTextures(type?: 'bg' | 'poster' | 'overlay' | 'logo' | 'flash') {
+    // No-op: Textures are now fetched dynamically in render() via getTexture()
   }
 
   resize = () => {
@@ -808,10 +829,13 @@ class VisualEngine {
       uniform float u_enable_noise;
       uniform float u_enable_flicker;
       uniform float u_enable_rgb_split;
-      uniform float u_enable_white_transparency;
-      uniform float u_enable_black_transparency;
       uniform float u_enable_drift_offset;
       uniform float u_enable_blob_dynamics;
+      
+      uniform float u_overlay_enabled;
+      uniform float u_overlay_trans_mode;
+      uniform float u_overlay_opacity;
+      
       uniform float u_flicker_amount;
       uniform float u_motion_amount;
       uniform vec4 u_layer_visibility;
@@ -851,6 +875,19 @@ class VisualEngine {
 
       float rand(vec2 co){
           return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+      }
+
+      float vnoise(vec3 p) {
+          vec3 i = floor(p);
+          vec3 f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+
+          float n = i.x + i.y * 57.0 + 113.0 * i.z;
+
+          return mix(mix(mix(rand(vec2(n + 0.0, 0.0)), rand(vec2(n + 1.0, 0.0)), f.x),
+                         mix(rand(vec2(n + 57.0, 0.0)), rand(vec2(n + 58.0, 0.0)), f.x), f.y),
+                     mix(mix(rand(vec2(n + 113.0, 0.0)), rand(vec2(n + 114.0, 0.0)), f.x),
+                         mix(rand(vec2(n + 170.0, 0.0)), rand(vec2(n + 171.0, 0.0)), f.x), f.y), f.z);
       }
 
       // Lava Space Helpers
@@ -983,8 +1020,30 @@ class VisualEngine {
           return smoothstep(0.0, softness, dist.x) * smoothstep(0.0, softness, dist.y);
       }
 
+      vec4 applyOverlayTransparency(vec4 overlay_color, float trans_mode, float opacity) {
+          float lum = dot(overlay_color.rgb, vec3(0.299, 0.587, 0.114));
+          float alpha_mod = 1.0;
+          if (trans_mode == 1.0) {
+              // Black Transparent: suppress dark tones
+              alpha_mod = smoothstep(0.02, 0.3, lum);
+          } else if (trans_mode == 2.0) {
+              // White Transparent: suppress bright tones
+              alpha_mod = 1.0 - smoothstep(0.7, 0.98, lum);
+          }
+          overlay_color.a *= alpha_mod * opacity;
+          return overlay_color;
+      }
+
       void main() {
         vec2 uv = vUv;
+        vec2 originalUv = uv;
+        
+        // Glitch Events (Global)
+        float tear = 0.0;
+        float roll = 0.0;
+        float noiseBurst = 0.0;
+        float flickerBurst = 0.0;
+        float rgbSplit = 0.0;
 
         // Exponential scaling for the "fireworks" magnitude of existing effects
         float effect_mult = u_global_effects + pow(u_global_effects, 4.0) * 2.0;
@@ -1040,45 +1099,94 @@ class VisualEngine {
             float spaceZoom = 0.92 - (u_bass * 0.3 * effect_mult * (u_motion_amount + 0.5) * u_lava_intensity);
             // Temporary expansion on peaks
             spaceZoom -= u_drop_pulse * 0.1 * u_lava_intensity;
+            spaceZoom = max(0.1, spaceZoom); // Prevent collapse to black
             
             uv = (uv - 0.5) * spaceZoom + 0.5;
         }
 
-        // CONTOUR Mode: Graphic, sculptural, print-like structural dance
+        // CONTOUR Mode: Structural Graphic System (Strips, Planes, Panels, Blocks)
         if (u_visual_mode == 3) {
-            float structure = u_lava_transformation;
-            float relief = u_lava_intensity;
+            float stripCount = u_lava_state;
+            float reassembly = u_lava_next_state;
+            float stripOffsetAmount = u_lava_mix;
+            float reliefDepth = u_lava_intensity;
+            float shatter = u_lava_reveal;
+            float energy = u_lava_transformation;
+            float bounce = u_represent_pulse;
+            float rasterDensity = u_represent_wave;
+            float planeShift = u_represent_wave_color;
+
+            // 0. Lifecycle & Visibility Cycle (Choreographed)
+            float cycleTime = u_time * 0.2;
+            float visibilityCycle = 0.5 + 0.5 * sin(cycleTime); // 0.0 to 1.0
+            // Phases: 0.0-0.3 (Clear), 0.3-0.7 (Partial), 0.7-1.0 (Strong)
+            float strongPhase = smoothstep(0.6, 0.9, visibilityCycle);
+            float partialPhase = smoothstep(0.2, 0.6, visibilityCycle) * (1.0 - strongPhase);
+            float clearPhase = 1.0 - partialPhase - strongPhase;
             
-            // 1. Rhythmic Bounce & Push (Kick/Bass)
-            float bounce = u_kick * 0.05 * effect_mult * relief;
-            float push = u_bass * 0.02 * effect_mult * structure;
-            uv = (uv - 0.5) * (1.0 - bounce) + 0.5;
-            uv += vec2(push, -push * 0.5);
+            // Global reassembly override based on cycle
+            float cycleReassembly = mix(reassembly, 1.0, clearPhase * 0.8);
+            
+            // 1. Structural Bounce (Kick driven)
+            vec2 centerDir = originalUv - 0.5;
+            uv = originalUv + centerDir * bounce * 0.1 * reliefDepth * (1.0 - clearPhase);
 
-            // 2. Structural Slicing / Block Shifting (Mids/Bass)
-            if (u_enable_glitch > 0.5) {
-                // Horizontal Slices
-                float hSlices = 4.0 + floor(structure * 8.0);
-                float hId = floor(uv.y * hSlices);
-                float hShift = (rand(vec2(hId, floor(u_time * 4.0))) - 0.5) * 0.1 * u_bass * structure * effect_mult;
-                hShift += sin(u_time * 2.0 + hId) * 0.02 * u_mid * structure;
-                uv.x += hShift;
-
-                // Vertical Slices (Subtle)
-                float vSlices = 2.0 + floor(structure * 4.0);
-                float vId = floor(uv.x * vSlices);
-                float vShift = (rand(vec2(vId, floor(u_time * 2.0))) - 0.5) * 0.05 * u_mid * structure * effect_mult;
-                uv.y += vShift;
+            // 2. Image-Derived Segmentation (Shape Families)
+            // Use low-res luminance to drive structure
+            vec2 lowResUv = floor(originalUv * 8.0) / 8.0;
+            float imgLum = dot(texture2D(u_tex_poster, lowResUv).rgb, vec3(0.299, 0.587, 0.114));
+            
+            // Determine Shape Family based on time and image content
+            float familySelector = fract(cycleTime * 0.5 + imgLum * 0.2);
+            
+            if (strongPhase > 0.1 || partialPhase > 0.1) {
+                float structuralWeight = mix(partialPhase * 0.5, 1.0, strongPhase);
+                
+                if (familySelector < 0.25) {
+                    // STRIPS: Wide horizontal architectural slicing
+                    float stripId = floor(uv.y * (stripCount * 0.5 + 2.0));
+                    float slide = (fract(stripId * 0.5) > 0.5 ? 1.0 : -1.0) * stripOffsetAmount * energy * 0.3;
+                    uv.x += slide * structuralWeight;
+                } else if (familySelector < 0.5) {
+                    // PANELS: Broad vertical structural bands
+                    float panelId = floor(uv.x * 2.0);
+                    float shift = (fract(panelId * 0.5) > 0.5 ? 1.0 : -1.0) * planeShift * energy * 0.2;
+                    uv.y += shift * structuralWeight;
+                } else if (familySelector < 0.75) {
+                    // SLABS: Large rectangular image-derived blocks
+                    vec2 slabGrid = vec2(3.0, 5.0);
+                    vec2 slabId = floor(uv * slabGrid);
+                    float slabRand = rand(slabId);
+                    vec2 slabShift = (vec2(slabRand, rand(slabId + 1.0)) - 0.5) * shatter * 0.2;
+                    uv += slabShift * structuralWeight;
+                } else {
+                    // RELIEF: Stepped image-derived planes
+                    float steppedLum = floor(imgLum * 5.0) / 5.0;
+                    float reliefWarp = steppedLum * 0.1 * reliefDepth;
+                    uv += vec2(reliefWarp, -reliefWarp) * structuralWeight;
+                }
             }
 
-            // 3. Topographic Drift
-            float topoZoom = 1.0 - u_bass * 0.05 * effect_mult * relief;
-            uv = (uv - 0.5) * topoZoom + 0.5;
+            // 3. Pseudo-3D Relief (Derived from Image)
+            vec4 posterSample = texture2D(u_tex_poster, uv);
+            float lum = dot(posterSample.rgb, vec3(0.299, 0.587, 0.114));
+            vec2 tilt = vec2(lum - 0.5) * planeShift * 0.1 * reliefDepth * (1.0 - clearPhase);
+            uv += tilt;
+
+            // 4. Rhythmic Reassembly
+            uv = mix(uv, originalUv, cycleReassembly);
+
+            // 5. Integrated Raster (Detail)
+            if (u_enable_vhs > 0.5) {
+                float lineFreq = 30.0 + rasterDensity * 150.0;
+                float lines = sin(uv.y * lineFreq + u_time * 2.0) * 0.5 + 0.5;
+                float edge = abs(lum - dot(texture2D(u_tex_poster, uv + 0.002).rgb, vec3(0.299, 0.587, 0.114)));
+                float rasterEffect = smoothstep(0.4, 0.6, lines) * (0.1 + edge * 2.0) * reliefDepth * strongPhase;
+                uv += vec2(rasterEffect * 0.005);
+            }
             
-            // 4. Erosion / Structural Push (Peaks)
-            if (u_drop_pulse > 0.1) {
-                float erosion = (rand(uv + u_time) - 0.5) * u_drop_pulse * 0.08 * effect_mult * structure;
-                uv += erosion;
+            if (u_enable_rgb_split > 0.5) {
+                rgbSplit += (0.002 + shatter * 0.01) * energy * (1.0 - clearPhase);
             }
         }
 
@@ -1134,13 +1242,6 @@ class VisualEngine {
         
         // Micro jitter during buildup
         uv += vec2(rand(uv + u_time), rand(uv - u_time)) * 0.003 * u_buildup;
-
-        // Glitch Events (Darker, more physical)
-        float tear = 0.0;
-        float roll = 0.0;
-        float noiseBurst = 0.0;
-        float flickerBurst = 0.0;
-        float rgbSplit = 0.0;
 
         if (u_visual_mode == 0) {
             if (u_enable_glitch > 0.5 && u_glitch_intensity > 0.0) {
@@ -1201,6 +1302,10 @@ class VisualEngine {
             shift = 0.001 * effect_mult * (1.0 + u_bass);
             shift += rgbSplit;
             shift += u_kick * 0.005 * effect_mult; // Pressure distortion on kick
+            
+            if (u_visual_mode == 0) {
+                shift += u_represent_wave * 0.015; // Add recoil to RGB split
+            }
         }
         
         // Internal surface RGB shift (micro shift on high frequencies)
@@ -1210,9 +1315,15 @@ class VisualEngine {
         float bg_age = u_time - u_last_bg_change;
         float bg_fade = smoothstep(0.0, 0.5, bg_age);
         
-        vec2 uv_bg_r = getCoverUv(uv + vec2(shift, 0.0), u_resolution, u_res_bg);
-        vec2 uv_bg_g = getCoverUv(uv, u_resolution, u_res_bg);
-        vec2 uv_bg_b = getCoverUv(uv - vec2(shift, 0.0), u_resolution, u_res_bg);
+        vec2 bg_offset = vec2(0.0);
+        if (u_visual_mode == 0) {
+            bg_offset.y += u_represent_pulse * 0.02; // Subtle background bounce
+            bg_offset.x -= u_represent_wave * 0.01;
+        }
+        
+        vec2 uv_bg_r = getCoverUv(uv + vec2(shift, 0.0) + bg_offset, u_resolution, u_res_bg);
+        vec2 uv_bg_g = getCoverUv(uv + bg_offset, u_resolution, u_res_bg);
+        vec2 uv_bg_b = getCoverUv(uv - vec2(shift, 0.0) + bg_offset, u_resolution, u_res_bg);
         
         vec4 col_bg;
         col_bg.r = texture2D(u_tex_bg, uv_bg_r).r;
@@ -1259,16 +1370,17 @@ class VisualEngine {
         // FG (Contain-Plus) - Poster -> Main Movement
         // Enhanced Background Fill (Blurred & Darkened) derived from the poster itself
         // This fills gaps during rotation, zoom, or when the poster is contained
-        vec2 uv_poster_fill = getCoverUv(uv, u_resolution, u_res_poster);
+        // Use originalUv for stable background fill to prevent black gaps during transforms
+        vec2 uv_poster_fill = getCoverUv(originalUv, u_resolution, u_res_poster);
         // Scale it up (zoom out) to ensure it covers even during transforms
-        uv_poster_fill = (uv_poster_fill - 0.5) * 0.7 + 0.5; 
+        uv_poster_fill = (uv_poster_fill - 0.5) * 0.5 + 0.5; 
         
         float poster_age = u_time - u_last_poster_change;
         float poster_fade = smoothstep(0.0, 0.3, poster_age);
         
         // 9-tap blur for the background fill
         vec4 col_poster_bg = vec4(0.0);
-        float bSize = 0.02;
+        float bSize = 0.04; // Increased blur size for better integration
         col_poster_bg += texture2D(u_tex_poster, uv_poster_fill) * 0.2;
         col_poster_bg += texture2D(u_tex_poster, uv_poster_fill + vec2(bSize, 0.0)) * 0.15;
         col_poster_bg += texture2D(u_tex_poster, uv_poster_fill - vec2(bSize, 0.0)) * 0.15;
@@ -1278,12 +1390,12 @@ class VisualEngine {
         col_poster_bg += texture2D(u_tex_poster, uv_poster_fill - vec2(bSize, bSize)) * 0.1;
         
         // Darken significantly for atmospheric feel
-        col_poster_bg.rgb *= 0.25 * poster_fade;
+        col_poster_bg.rgb *= 0.2 * poster_fade;
         
         // Add a soft vignette to the fill layer to blend into black
         vec2 fillVignetteUv = uv * (1.0 - uv.yx);
         float fillVignette = fillVignetteUv.x * fillVignetteUv.y * 15.0;
-        fillVignette = pow(fillVignette, 0.5);
+        fillVignette = pow(fillVignette, 0.4);
         col_poster_bg.rgb *= fillVignette;
 
         // Add glitch transition effect when poster is new
@@ -1291,14 +1403,32 @@ class VisualEngine {
         vec2 poster_offset = vec2(sin(u_time * 0.1) * 0.01, cos(u_time * 0.08) * 0.01) * effect_mult * u_motion_amount * 2.0;
         poster_offset += vec2(rand(vec2(u_time, uv.y)) - 0.5, rand(vec2(uv.x, u_time)) - 0.5) * 0.1 * transition_glitch;
         
+        float current_zoom = u_zoom;
+        if (u_visual_mode == 0) {
+            // Signal Glitch: Add post-drop bounce and recoil
+            current_zoom += u_represent_pulse * 0.25; // Strong forward bounce
+            current_zoom -= u_represent_wave * 0.15;  // Elastic recoil
+            
+            // Add physical push to offset
+            poster_offset.y += u_represent_pulse * 0.08;
+            poster_offset.x += (rand(vec2(u_time, 1.0)) - 0.5) * u_represent_wave * 0.05;
+        }
+        
         vec2 uv_poster = getContainUv(uv + poster_offset + u_poster_crop, u_resolution, u_res_poster);
         // Scale down slightly to fit well, apply beat zoom, and apply poster zoom level
-        uv_poster = (uv_poster - 0.5) * ((1.02 - u_zoom * u_poster_zoom_weight) / u_poster_zoom_level) + 0.5;
+        uv_poster = (uv_poster - 0.5) * ((1.02 - current_zoom * u_poster_zoom_weight) / u_poster_zoom_level) + 0.5;
         
         vec4 col_poster = vec4(0.0);
         if (uv_poster.x >= 0.0 && uv_poster.x <= 1.0 && uv_poster.y >= 0.0 && uv_poster.y <= 1.0) {
             vec2 uv_poster_r = uv_poster + vec2(shift + transition_glitch * 0.05, 0.0);
             vec2 uv_poster_b = uv_poster - vec2(shift + transition_glitch * 0.05, 0.0);
+            
+            // Add RGB split recoil for Signal Glitch
+            if (u_visual_mode == 0 && u_enable_rgb_split > 0.5) {
+                uv_poster_r.x += u_represent_wave * 0.02;
+                uv_poster_b.x -= u_represent_wave * 0.02;
+            }
+            
             col_poster.r = texture2D(u_tex_poster, uv_poster_r).r;
             col_poster.g = texture2D(u_tex_poster, uv_poster).g;
             col_poster.b = texture2D(u_tex_poster, uv_poster_b).b;
@@ -1307,12 +1437,6 @@ class VisualEngine {
             
             // Fade in
             col_poster.a *= poster_fade;
-            
-            if (u_enable_white_transparency > 0.5 && u_poster_white_transparency > 0.0) {
-                float lum = dot(col_poster.rgb, vec3(0.299, 0.587, 0.114));
-                float fade = smoothstep(0.5, 1.0, lum);
-                col_poster.a *= (1.0 - fade * u_poster_white_transparency);
-            }
             
             // Slightly reduce poster visibility during buildup
             col_poster.a *= (1.0 - u_buildup * 0.15);
@@ -1328,9 +1452,17 @@ class VisualEngine {
         }
         
         vec2 overlay_offset = vec2(cos(u_time * 0.1) * 0.005, sin(u_time * 0.08) * 0.005) * effect_mult * u_motion_amount;
+        
+        float overlay_zoom = current_zoom;
+        if (u_visual_mode == 0) {
+            // Overlay reacts differently to bounce (more snappy, less heavy)
+            overlay_offset.y -= u_represent_pulse * 0.04;
+            overlay_zoom += u_represent_wave * 0.2; // Recoil expands overlay
+        }
+        
         vec2 uv_overlay = getContainUv(uv + overlay_offset + overlay_jump, u_resolution, u_res_overlay);
         // Scale down more (logos should be tasteful), and apply minimal beat zoom
-        uv_overlay = (uv_overlay - 0.5) * (1.5 - u_zoom * u_overlay_zoom_weight) + 0.5;
+        uv_overlay = (uv_overlay - 0.5) * (1.5 - overlay_zoom * u_overlay_zoom_weight) + 0.5;
         
         // Glitch distortion on overlay
         if (u_enable_glitch > 0.5 && u_glitch_intensity > 0.0) {
@@ -1338,30 +1470,33 @@ class VisualEngine {
         }
         
         vec4 col_overlay = vec4(0.0);
-        if (uv_overlay.x >= 0.0 && uv_overlay.x <= 1.0 && uv_overlay.y >= 0.0 && uv_overlay.y <= 1.0) {
-            col_overlay = texture2D(u_tex_overlay, uv_overlay);
-            col_overlay.a *= getSoftEdge(uv_overlay, u_res_overlay, u_overlay_softness);
-            
-            if (u_enable_white_transparency > 0.5 && u_overlay_white_transparency > 0.0) {
-                float lum = dot(col_overlay.rgb, vec3(0.299, 0.587, 0.114));
-                float fade = smoothstep(0.5, 1.0, lum);
-                col_overlay.a *= (1.0 - fade * u_overlay_white_transparency);
+        if (u_layer_visibility.z > 0.5 && u_overlay_enabled > 0.5) {
+            if (uv_overlay.x >= 0.0 && uv_overlay.x <= 1.0 && uv_overlay.y >= 0.0 && uv_overlay.y <= 1.0) {
+                col_overlay = texture2D(u_tex_overlay, uv_overlay);
+                col_overlay.a *= getSoftEdge(uv_overlay, u_res_overlay, u_overlay_softness);
+                
+                col_overlay = applyOverlayTransparency(col_overlay, u_overlay_trans_mode, u_overlay_opacity);
+                
+                // Occasional overlay accent based on groove/randomness
+                float slow_pulse = sin(u_time * 0.2) * sin(u_time * 0.33);
+                float overlay_accent = smoothstep(0.6, 1.0, sin(u_time * 0.5 + u_bass * 2.0) * slow_pulse);
+                col_overlay.a *= 0.3 + 0.7 * overlay_accent; // Base 30%, spikes to 100% occasionally
+                
+                // Slightly reduce overlay intensity during buildup
+                col_overlay.a *= (1.0 - u_buildup * 0.2);
             }
-            
-            // Occasional overlay accent based on groove/randomness
-            float slow_pulse = sin(u_time * 0.2) * sin(u_time * 0.33);
-            float overlay_accent = smoothstep(0.6, 1.0, sin(u_time * 0.5 + u_bass * 2.0) * slow_pulse);
-            col_overlay.a *= 0.3 + 0.7 * overlay_accent; // Base 30%, spikes to 100% occasionally
-            
-            // Slightly reduce overlay intensity during buildup
-            col_overlay.a *= (1.0 - u_buildup * 0.2);
-            col_overlay.a *= u_layer_visibility.z;
         }
 
         // Logo Layer
         vec2 logo_jump = vec2(0.0);
         if (u_motion_amount > 0.5 && step(0.98, rand(vec2(floor(u_time * 4.0), 2.0))) > 0.5) {
             logo_jump = vec2(rand(vec2(u_time, 2.0)) - 0.5, rand(vec2(2.0, u_time)) - 0.5) * 0.8;
+        }
+        
+        if (u_visual_mode == 0) {
+            // Logo bounce (very snappy, sharp)
+            logo_jump.y -= u_represent_pulse * 0.06;
+            logo_jump.x += u_represent_wave * 0.03;
         }
         
         vec2 uv_logo = getContainUv(uv + logo_jump, u_resolution, u_res_logo);
@@ -1378,7 +1513,14 @@ class VisualEngine {
         if (uv_logo.x >= 0.0 && uv_logo.x <= 1.0 && uv_logo.y >= 0.0 && uv_logo.y <= 1.0) {
             col_logo = texture2D(u_tex_logo, uv_logo);
             
-            if (u_visual_mode == 2) {
+            if (u_visual_mode == 0) {
+                // Signal Glitch: Sharp scale bounce
+                float logoPulse = 1.0 + u_represent_pulse * 0.1 - u_represent_wave * 0.05;
+                vec2 pulsedUv = (uv_logo - 0.5) / logoPulse + 0.5;
+                if (pulsedUv.x >= 0.0 && pulsedUv.x <= 1.0 && pulsedUv.y >= 0.0 && pulsedUv.y <= 1.0) {
+                    col_logo = texture2D(u_tex_logo, pulsedUv);
+                }
+            } else if (u_visual_mode == 2) {
                 // REPRESENT MODE: Enhanced Logo
                 // Subtle scaling pulse
                 float logoPulse = 1.0 + u_bass * 0.05 * u_represent_pulse;
@@ -1397,11 +1539,6 @@ class VisualEngine {
                 col_logo.rgb += vec3(1.0) * sweep * 0.3;
             }
             
-            if (u_enable_white_transparency > 0.5) {
-                float lum = dot(col_logo.rgb, vec3(0.299, 0.587, 0.114));
-                float fade = smoothstep(0.5, 1.0, lum);
-                col_logo.a *= (1.0 - fade * 0.9);
-            }
             col_logo.a *= u_layer_visibility.w;
             col_logo.a *= logo_fade; // Smooth transition
         }
@@ -1417,7 +1554,164 @@ class VisualEngine {
         // Blend
         vec4 col = col_bg;
         
-        if (u_visual_mode != 2) {
+        if (u_visual_mode == 4) {
+            // KALEIDOSCOPE MODE (4) - Repaired & Rebalanced
+            float sides = u_lava_state;
+            float shape_type = u_lava_next_state;
+            float shape_morph = u_lava_mix;
+            float mirror_depth = u_lava_intensity;
+            float tunnel_depth = u_lava_reveal;
+            float rotation_angle = u_lava_transformation; // Integrated angle from JS
+            float center_lock = u_lava_is_logo;
+            float center_pulse = u_represent_pulse;
+            float shimmer = u_represent_wave;
+            
+            // 0. Rotation: Subtle & Slow
+            // We use the integrated angle but add a tiny time-based drift for life
+            float slow_rotation = rotation_angle + u_time * 0.005;
+            
+            vec2 k_uv = uv - 0.5;
+            float r = length(k_uv);
+            
+            // A. RIPPLE (Radial wave movement)
+            // Pattern breathing from center outward, driven by shimmer/highs
+            float ripple_freq = 10.0 + u_high * 10.0;
+            float ripple_speed = 1.0;
+            float ripple_amp = 0.012 * (0.3 + shimmer * 0.7);
+            float ripple = sin(r * ripple_freq - u_time * ripple_speed) * ripple_amp;
+            r += ripple;
+            
+            float a = atan(k_uv.y, k_uv.x) + slow_rotation;
+            
+            // 1. Radial Symmetry & Mirroring
+            float tau = 6.283185;
+            float sides_safe = max(3.0, sides);
+            
+            // B. REASSEMBLY (Internal pieces reorganize)
+            // Modulate slice angle with mids for structural shifting
+            float reassembly = sin(u_time * 0.08) * 0.015 + u_mid * 0.04;
+            float slice = (tau / sides_safe) * (1.0 + reassembly);
+            
+            // Center Lock: Reduces reassembly and rotation if active
+            if (center_lock > 0.5) {
+                slice = tau / sides_safe;
+            }
+            
+            float angle_in_slice = mod(a, slice);
+            float mirror_a = abs(angle_in_slice - slice * 0.5);
+            
+            // D. INTERLOCKING (Shapes slide into each other)
+            // Subtle angular offset based on radius and mids
+            mirror_a += sin(r * 4.0 - u_time * 0.25) * 0.025 * u_mid;
+            
+            // C. BOUNCE (Elastic pulse with groove)
+            // Internal forms pulse and rebound with kick
+            float bounce = 1.0 + sin(u_time * 0.35) * 0.01 + u_kick * 0.08;
+            
+            // 2. Spatial Tunnel & Breathing
+            float tunnel_zoom = 1.0 + fract(tunnel_depth * 0.1) * 1.5;
+            float radial_zoom = (0.8 + center_pulse * 0.3) * tunnel_zoom * bounce;
+            radial_zoom = max(0.05, radial_zoom);
+            
+            // E. PATTERN DRIFT (Internal migration)
+            // Slow internal migration of image-derived shapes
+            vec2 internal_drift = vec2(
+                sin(u_time * 0.03 + u_bass * 0.15),
+                cos(u_time * 0.05 + u_bass * 0.1)
+            ) * 0.07;
+            
+            // Parallax offset based on radius
+            vec2 drift_parallax = u_poster_crop * (1.0 + r * 0.3);
+            
+            // 4. Coordinate Transformation
+            vec2 polar_uv = vec2(cos(mirror_a), sin(mirror_a)) * r;
+            polar_uv /= radial_zoom;
+            polar_uv += drift_parallax + internal_drift;
+            
+            // 5. Shape Family Evolution (Dancing internal pieces)
+            float shape_field = 0.0;
+            vec2 shape_uv = (polar_uv - 0.5) * 2.0;
+            
+            if (u_enable_noise > 0.5) {
+                // SHAPE MORPH enabled
+                float morph_speed = u_time * 0.4;
+                if (shape_type < 0.5) {
+                    // OVALS
+                    shape_field = length(shape_uv * vec2(1.0, 0.5 + shape_morph));
+                } else if (shape_type < 1.5) {
+                    // BLOBS
+                    shape_field = length(shape_uv) + sin(atan(shape_uv.y, shape_uv.x) * 5.0 + morph_speed) * 0.2 * shape_morph;
+                } else if (shape_type < 2.5) {
+                    // RECTS
+                    vec2 q = abs(shape_uv) - vec2(0.5 + shape_morph * 0.5);
+                    shape_field = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
+                } else {
+                    // STRIPES
+                    shape_field = abs(shape_uv.x) + sin(shape_uv.y * 10.0 + morph_speed) * 0.1 * shape_morph;
+                }
+                polar_uv += shape_uv * (1.0 - smoothstep(0.0, 0.1, abs(shape_field - 0.5))) * 0.03;
+            }
+            
+            // 6. Layered Compositing
+            vec4 k_poster = texture2D(u_tex_poster, polar_uv + 0.5);
+            
+            // Add shimmer detail
+            float detail_noise = vnoise(vec3(polar_uv * 15.0, u_time * 0.5)) * shimmer;
+            k_poster.rgb += detail_noise * 0.15;
+            
+            // Center-out expansion mask
+            float center_mask = smoothstep(0.0, 0.7, r * (1.0 + center_pulse * 0.5));
+            
+            // Multi-layer depth (VHS toggle as "Multi-Layer")
+            if (u_enable_vhs > 0.5) {
+                // Secondary layer with different interlocking drift
+                float r2 = r * 1.25;
+                float mirror_a2 = mirror_a + sin(u_time * 0.15) * 0.12;
+                vec2 polar_uv2 = vec2(cos(mirror_a2), sin(mirror_a2)) * r2;
+                polar_uv2 /= radial_zoom * 1.15;
+                polar_uv2 += drift_parallax * 0.7 + internal_drift * -0.6;
+                
+                vec4 layer2 = texture2D(u_tex_poster, polar_uv2 + 0.5);
+                k_poster = mix(k_poster, layer2, 0.45 * (1.0 - center_mask));
+            }
+            
+            // Merge Overlay into the pattern
+            if (u_layer_visibility.z > 0.5 && u_overlay_enabled > 0.5) {
+                if (u_enable_rgb_split > 0.5) {
+                    // OVERLAY MERGE
+                    vec2 overlay_k_uv = getContainUv(polar_uv + 0.5, u_resolution, u_res_overlay);
+                    vec4 mirrored_overlay = texture2D(u_tex_overlay, overlay_k_uv);
+                    mirrored_overlay = applyOverlayTransparency(mirrored_overlay, u_overlay_trans_mode, u_overlay_opacity);
+                    k_poster = mix(k_poster, mirrored_overlay, mirrored_overlay.a * 0.5);
+                } else {
+                    col = mix(col, col_overlay, col_overlay.a);
+                }
+            }
+            
+            // Final Kaleidoscope Color
+            float mirror_mix = max(0.15, mirror_depth);
+            col = mix(col, k_poster, mirror_mix);
+
+            // Depth Logo (Logo appears in front of the tunnel)
+            if (col_logo.a > 0.01) {
+                if (u_enable_flicker > 0.5) {
+                    // DEPTH LOGO
+                    vec2 logo_parallax = u_poster_crop * 0.15 + vec2(sin(u_time * 0.2), cos(u_time * 0.25)) * 0.02;
+                    vec2 uv_logo_spatial = getContainUv(uv + logo_parallax, u_resolution, u_res_logo);
+                    vec4 spatial_logo = texture2D(u_tex_logo, uv_logo_spatial);
+                    
+                    // Logo pulse and glow
+                    float logo_glow = center_pulse * 0.4;
+                    spatial_logo.rgb += spatial_logo.rgb * logo_glow;
+                    
+                    col.rgb = mix(col.rgb, spatial_logo.rgb, spatial_logo.a * u_layer_visibility.w);
+                } else {
+                    col.rgb = mix(col.rgb, col_logo.rgb, col_logo.a);
+                }
+            }
+        }
+        
+        if (u_visual_mode != 2 && u_visual_mode != 4) {
             // Add darkened Poster cover to create a thematic backdrop
             col.rgb += col_poster_bg.rgb * 0.5; 
             // Alpha blend Poster
@@ -1426,21 +1720,13 @@ class VisualEngine {
             col.rgb = 1.0 - (1.0 - col.rgb) * (1.0 - col_overlay.rgb * col_overlay.a * 0.8);
         }
         
-        // Alpha blend Logo
-        col.rgb = mix(col.rgb, col_logo.rgb, col_logo.a);
-        
         // Flash Blend
-        if (u_enable_black_transparency > 0.5) {
-            float isDark = step(0.2, rand(vec2(floor(u_time * 4.0), 1.0)));
-            if (isDark > 0.5) {
-                // Multiply blend for dark flash
-                col.rgb = mix(col.rgb, col.rgb * (1.0 - col_flash.rgb), col_flash.a);
-            } else {
-                // Screen blend for bright flash
-                col.rgb = 1.0 - (1.0 - col.rgb) * (1.0 - col_flash.rgb * col_flash.a);
-            }
+        float isDark = step(0.2, rand(vec2(floor(u_time * 4.0), 1.0)));
+        if (isDark > 0.5) {
+            // Multiply blend for dark flash
+            col.rgb = mix(col.rgb, col.rgb * (1.0 - col_flash.rgb), col_flash.a);
         } else {
-            // Screen blend Flash
+            // Screen blend for bright flash
             col.rgb = 1.0 - (1.0 - col.rgb) * (1.0 - col_flash.rgb * col_flash.a);
         }
 
@@ -1465,63 +1751,82 @@ class VisualEngine {
                 col.rgb = mix(col.rgb, clamp(saturated, 0.0, 1.0), 0.2 + burst * 0.5);
             }
         } else if (u_visual_mode == 3) {
-            // CONTOUR Mode: Graphic & Structural
-            float structure = u_lava_transformation;
-            float relief = u_lava_intensity;
+            // CONTOUR Mode: Structural, Graphic, Spatial
+            float reassembly = u_lava_next_state;
+            float stripCount = u_lava_state;
+            float globalEnergy = u_lava_transformation;
+            float bounce = u_represent_pulse;
+            float planeShift = u_represent_wave_color;
+            float reliefDepth = u_lava_intensity;
             
-            // Layered Depth / Parallax
-            // Offset the UVs for different layers based on bass to create spatial feel
-            vec2 contourUv = uv + vec2(u_bass * 0.01, u_bass * 0.005) * relief;
-            vec2 rasterUvBase = uv - vec2(u_bass * 0.005, u_bass * 0.01) * relief;
-
+            // 0. Lifecycle & Visibility Cycle
+            float cycleTime = u_time * 0.2;
+            float visibilityCycle = 0.5 + 0.5 * sin(cycleTime);
+            float strongPhase = smoothstep(0.6, 0.9, visibilityCycle);
+            float partialPhase = smoothstep(0.2, 0.6, visibilityCycle) * (1.0 - strongPhase);
+            float clearPhase = 1.0 - partialPhase - strongPhase;
+            
+            // 1. Structural Sampling
+            vec2 structuralUv = uv;
+            
+            // Sample image with structural UVs
+            vec2 uv_poster_struct = getContainUv(structuralUv + u_poster_crop, u_resolution, u_res_poster);
+            uv_poster_struct = (uv_poster_struct - 0.5) * (1.0 / u_poster_zoom_level) + 0.5;
+            
+            if (uv_poster_struct.x >= 0.0 && uv_poster_struct.x <= 1.0 && uv_poster_struct.y >= 0.0 && uv_poster_struct.y <= 1.0) {
+                col = texture2D(u_tex_poster, uv_poster_struct);
+                col.a *= getSoftEdge(uv_poster_struct, u_res_poster, u_poster_softness);
+            } else {
+                col = col_poster_bg;
+            }
+            
             float lum = dot(col.rgb, vec3(0.299, 0.587, 0.114));
             
-            // 1. Contour Lines (Topographic)
-            float contourScale = 10.0 + u_bass * 15.0 * structure;
-            float contourLines = abs(fract(lum * contourScale + u_time * 0.15) - 0.5) * 2.0;
-            contourLines = smoothstep(0.4, 0.5, contourLines);
+            // 2. Structural Patterns (Image-Derived)
+            // Contour Lines (Depth Relief)
+            float contourScale = 8.0 + u_bass * 12.0 * globalEnergy;
+            float contourLines = abs(fract(lum * contourScale + u_time * 0.05) - 0.5) * 2.0;
+            contourLines = smoothstep(0.35, 0.45, contourLines);
             
-            // 2. Halftone / Raster (Highs)
-            float rasterScale = 100.0 - u_high * 60.0 * structure;
-            vec2 rasterUv = rasterUvBase * rasterScale;
-            float raster = sin(rasterUv.x) * sin(rasterUv.y);
-            float rasterThreshold = mix(0.85, 0.15, lum);
-            float rasterPattern = smoothstep(rasterThreshold - 0.1, rasterThreshold + 0.1, raster);
+            // Structural Hatch (Replacing Dot Raster)
+            float hatchScale = 40.0 + u_represent_wave * 60.0;
+            float hatchLines = sin(structuralUv.y * hatchScale + structuralUv.x * hatchScale * 0.5);
+            float hatchThreshold = mix(0.9, 0.1, lum);
+            float structuralHatch = smoothstep(hatchThreshold - 0.1, hatchThreshold + 0.1, hatchLines);
             
-            // 3. Moiré / Interference (Highs)
-            float moire = sin(uv.x * 250.0 + u_time * 2.0) * sin(uv.y * 250.0 - u_time * 2.0);
-            moire = smoothstep(0.0, 0.1, moire) * 0.15 * u_high * structure;
+            // 3. Color Modes (Integrated with Visibility Cycle)
+            vec3 finalCol = col.rgb;
             
-            // Color Modes for CONTOUR
-            if (u_color_mode == 0) { // print-black (High Contrast B&W)
-                float final = mix(rasterPattern, contourLines, 0.5);
-                final = mix(final, 1.0 - final, step(0.5, lum)); 
-                col.rgb = vec3(final * lum);
-            } else if (u_color_mode == 1) { // topo-relief (Sculptural)
-                vec3 base = vec3(0.08, 0.1, 0.12);
-                vec3 accent = vec3(0.85, 0.75, 0.55);
-                col.rgb = mix(base, accent * lum, contourLines);
-                col.rgb = mix(col.rgb, vec3(1.0), (1.0 - rasterPattern) * 0.25 * lum);
-                // Add relief shadow (static for now to fix compilation)
-                col.rgb *= 1.0; 
+            if (u_color_mode == 0) { // print-black
+                float graphic = mix(structuralHatch, contourLines, 0.4);
+                vec3 bw = vec3(smoothstep(0.3, 0.7, lum));
+                finalCol = mix(bw, vec3(graphic), strongPhase * 0.85);
+            } else if (u_color_mode == 1) { // topo-relief
+                vec3 base = vec3(0.04, 0.06, 0.08);
+                vec3 accent = vec3(0.95, 0.85, 0.65);
+                vec3 topo = mix(base, accent * (0.5 + lum * 0.5), contourLines);
+                finalCol = mix(col.rgb, topo, partialPhase * 0.4 + strongPhase);
             } else { // spectral-contour
                 vec3 a = vec3(0.5, 0.5, 0.5);
                 vec3 b = vec3(0.5, 0.5, 0.5);
                 vec3 c = vec3(1.0, 1.0, 1.0);
                 vec3 d = vec3(0.0, 0.33, 0.67);
-                vec3 pal = a + b * cos(6.28318 * (c * lum + d + u_time * 0.1));
-                
-                col.rgb = mix(pal * 0.15, pal, contourLines);
-                col.rgb *= rasterPattern;
-                col.rgb += moire;
+                vec3 pal = a + b * cos(6.28318 * (c * lum + d + u_time * 0.04));
+                vec3 spectral = mix(pal * 0.2, pal, contourLines);
+                finalCol = mix(col.rgb, spectral, partialPhase * 0.3 + strongPhase * 0.95);
             }
             
-            // Apply structural erosion fragments
-            if (u_drop_pulse > 0.4) {
-                float frag = step(0.92, rand(uv + u_time));
-                col.rgb = mix(col.rgb, vec3(1.0), frag * u_drop_pulse * structure);
+            col.rgb = mix(col.rgb, finalCol, 1.0 - clearPhase * 0.6);
+            
+            // 4. Structural Shards (Replacing Random Dots)
+            if (u_lava_reveal > 0.05) {
+                vec2 shardId = floor(uv * 4.0);
+                float shard = step(0.97 - u_lava_reveal * 0.03, rand(shardId + floor(u_time * 4.0)));
+                col.rgb = mix(col.rgb, vec3(1.0), shard * strongPhase * 0.7);
             }
-        } else {
+            
+            col.a *= u_layer_visibility.y;
+        } else if (u_visual_mode == 1) {
             // Lava Space Colors & Material Behavior
             float t = u_time * 0.2;
             float blobDynamics = u_enable_blob_dynamics;
@@ -1706,9 +2011,24 @@ class VisualEngine {
         // Buildup contrast
         col.rgb = mix(col.rgb, smoothstep(0.05, 0.95, col.rgb), u_buildup * 0.15);
 
+        // Final Logo Blend (Ensure visibility across all modes)
+        if (u_visual_mode == 4) {
+            col.rgb = mix(col.rgb, col_logo.rgb, col_logo.a * 0.5);
+        } else {
+            col.rgb = mix(col.rgb, col_logo.rgb, col_logo.a);
+        }
+
         // Vignette
         float dist = distance(vUv, vec2(0.5));
         col.rgb *= smoothstep(0.9, 0.3, dist);
+
+        // Final Safety Fallback: Never allow pure black if assets exist
+        if (length(col.rgb) < 0.01 && (u_layer_visibility.x > 0.1 || u_layer_visibility.y > 0.1)) {
+            // Fallback to a dimmed version of the poster if everything else failed
+            vec2 fallbackUv = getContainUv(originalUv, u_resolution, u_res_poster);
+            vec4 fallbackSample = texture2D(u_tex_poster, fallbackUv);
+            col.rgb = mix(col.rgb, fallbackSample.rgb * 0.5, fallbackSample.a * u_layer_visibility.y);
+        }
 
         gl_FragColor = vec4(col.rgb, 1.0);
       }
@@ -1774,10 +2094,11 @@ class VisualEngine {
       u_enable_noise: gl.getUniformLocation(this.program, 'u_enable_noise'),
       u_enable_flicker: gl.getUniformLocation(this.program, 'u_enable_flicker'),
       u_enable_rgb_split: gl.getUniformLocation(this.program, 'u_enable_rgb_split'),
-      u_enable_white_transparency: gl.getUniformLocation(this.program, 'u_enable_white_transparency'),
-      u_enable_black_transparency: gl.getUniformLocation(this.program, 'u_enable_black_transparency'),
       u_enable_drift_offset: gl.getUniformLocation(this.program, 'u_enable_drift_offset'),
       u_enable_blob_dynamics: gl.getUniformLocation(this.program, 'u_enable_blob_dynamics'),
+      u_overlay_enabled: gl.getUniformLocation(this.program, 'u_overlay_enabled'),
+      u_overlay_trans_mode: gl.getUniformLocation(this.program, 'u_overlay_trans_mode'),
+      u_overlay_opacity: gl.getUniformLocation(this.program, 'u_overlay_opacity'),
       u_flicker_amount: gl.getUniformLocation(this.program, 'u_flicker_amount'),
       u_motion_amount: gl.getUniformLocation(this.program, 'u_motion_amount'),
       u_layer_visibility: gl.getUniformLocation(this.program, 'u_layer_visibility'),
@@ -1811,7 +2132,7 @@ class VisualEngine {
     gl.uniform1i(this.uniforms.u_tex_flash, 4);
   }
 
-  setVisualMode(mode: 'signal-glitch' | 'lava-space' | 'represent') {
+  setVisualMode(mode: 'signal-glitch' | 'lava-space' | 'represent' | 'contour' | 'kaleidoscope') {
     this.visualMode = mode;
   }
 
@@ -1821,6 +2142,56 @@ class VisualEngine {
 
   setOptions(opts: Partial<VisualOptions>) {
     this.options = { ...this.options, ...opts };
+  }
+
+  updateAssets(assets: AssetItem[]) {
+    this.assets = assets;
+    this.bgAssets = assets.filter(a => a.metadata.type === 'bg');
+    this.posterAssets = assets.filter(a => a.metadata.type === 'poster');
+    this.overlayAssets = assets.filter(a => a.metadata.type === 'overlay');
+    this.logoAssets = assets.filter(a => a.metadata.type === 'logo');
+    this.flashAssets = assets.filter(a => a.metadata.type === 'flash');
+    
+    if (this.bgAssets.length === 0) this.bgAssets = assets.length > 0 ? assets : [dummyAsset];
+    if (this.posterAssets.length === 0) this.posterAssets = assets.length > 0 ? assets : [dummyAsset];
+    if (this.overlayAssets.length === 0) this.overlayAssets = [dummyAsset];
+    if (this.logoAssets.length === 0) this.logoAssets = [dummyAsset];
+    if (this.flashAssets.length === 0) this.flashAssets = [dummyAsset];
+
+    // Force a re-pick of assets
+    this.bgIndex = Math.floor(Math.random() * this.bgAssets.length);
+    this.posterIndex = Math.floor(Math.random() * this.posterAssets.length);
+    this.overlayIndex = Math.floor(Math.random() * this.overlayAssets.length);
+    this.logoIndex = Math.floor(Math.random() * this.logoAssets.length);
+    this.flashIndex = Math.floor(Math.random() * this.flashAssets.length);
+
+    // Clean up unused textures
+    const currentImages = new Set(assets.map(a => a.image));
+    currentImages.add(dummyAsset.image);
+    
+    for (const [img, tex] of this.textureCache.entries()) {
+      if (!currentImages.has(img)) {
+        this.gl?.deleteTexture(tex);
+        this.textureCache.delete(img);
+      }
+    }
+  }
+
+  setMacro(macro: 'buildUp' | 'tension' | 'drop' | 'extraBounce', active: boolean) {
+    if (macro === 'buildUp') this.macroBuildUp = active;
+    if (macro === 'tension') this.macroTension = active;
+    if (macro === 'extraBounce') this.macroExtraBounce = active;
+    if (macro === 'drop') {
+      this.macroDrop = active;
+      if (active) {
+        // Trigger one-shot drop effects
+        this.postDropEnergy = 1.0;
+        this.dropPulse = 1.0;
+        this.signalGlitchBounce += 1.5;
+        this.signalGlitchRecoil += 0.5;
+        this.lavaState = (this.lavaState + 1) % 3;
+      }
+    }
   }
 
   pickAsset(assets: AssetItem[], vol: number, currentIndex: number): number {
@@ -1855,6 +2226,7 @@ class VisualEngine {
   }
 
   private updateLavaSpace(context: MusicalContext) {
+    if (!context) return;
     const { events, state, energyTrend, time } = context;
     if (time > this.nextLavaStateTime) {
       this.lavaState = this.lavaNextState;
@@ -1873,13 +2245,13 @@ class VisualEngine {
     } else if (state === MusicalState.DROP_RELEASE) {
       targetTransformation = 1.0;
     } else if (state === MusicalState.GROOVE_LOCKED) {
-      targetTransformation = 0.1 + events.kick * 0.2;
+      targetTransformation = 0.1 + events.rawKick * 0.3;
     }
     
     this.lavaTransformationAmount += (targetTransformation - this.lavaTransformationAmount) * 0.1;
 
     // Lava intensity reacts to kicks for "impact"
-    const targetIntensity = 0.3 + events.kick * 0.7 + events.intensity * 0.3;
+    const targetIntensity = 0.3 + events.rawKick * 0.8 + events.intensity * 0.3;
     this.lavaIntensity += (targetIntensity - this.lavaIntensity) * 0.2;
 
     // Reveal amount: more abstract during breakdown, more structured during groove
@@ -1905,33 +2277,78 @@ class VisualEngine {
   }
 
   private updateContour(context: MusicalContext) {
-    const { events, state, energyTrend, time } = context;
-    // Contour mode: Tighten contours during building/tension
-    let contourTension = 0;
-    if (state === MusicalState.BUILDING || state === MusicalState.PRE_DROP_TENSION) {
-      contourTension = 0.5 + energyTrend * 0.5;
-    } else if (state === MusicalState.DROP_RELEASE) {
-      contourTension = 1.0;
-    } else {
-      contourTension = events.bass * 0.3;
-    }
+    if (!context) return;
+    const { events, features, state, time } = context;
     
-    // Relief reacts to high frequencies for "shimmer"
-    const relief = 0.2 + events.hat * 0.8;
+    // 1. Structural Energy (Global)
+    const structuralEnergy = (this.options.globalEffects * 0.5 + events.smoothedBass * 0.5) * this.options.eventDensity;
+    
+    // 2. Strip Offset (Bass driven)
+    const targetStripOffset = events.rawBass * 0.25 * this.options.motionAmount;
+    this.contourStripOffset += (targetStripOffset - this.contourStripOffset) * 0.1;
+    
+    // 3. Plane Shift (Mids driven)
+    const targetPlaneShift = this.options.enableCurvature ? (events.rawSnare * 0.4 * this.options.motionAmount) : 0;
+    this.contourPlaneShift += (targetPlaneShift - this.contourPlaneShift) * 0.15;
+    
+    // 4. Reassembly Logic (Phrase boundaries & Energy)
+    // Reassemble during breakdown or at phrase boundaries
+    let targetReassembly = 1.0;
+    if (state === MusicalState.BUILDING || state === MusicalState.DROP_RELEASE) {
+      targetReassembly = 0.2 + (1.0 - events.smoothedBass) * 0.5;
+    }
+    if (events.isPhraseBoundary) {
+      targetReassembly = 1.0; // Force reassemble at boundary
+    }
+    this.contourReassembly += (targetReassembly - this.contourReassembly) * 0.05;
+    
+    // 5. Bounce & Push (Kick driven)
+    const kickBounce = this.options.enableFlicker ? (events.rawKick * 0.5 * this.options.globalEffects) : 0;
+    this.contourBounce = Math.max(this.contourBounce * 0.85, kickBounce);
+    
+    // 6. Shatter (Drop/Peak driven)
+    const isDrop = state === MusicalState.DROP_RELEASE;
+    const targetShatter = this.options.enableGlitch ? (isDrop ? 1.0 : events.rawSnare * 0.6) : 0;
+    this.contourShatter = Math.max(this.contourShatter * 0.9, targetShatter * this.options.globalEffects);
+    
+    // 7. Raster Density (Highs driven)
+    const targetDensity = this.options.enableVHS ? (0.2 + features.high * 1.5 * this.options.eventDensity) : 0;
+    this.contourRasterDensity += (targetDensity - this.contourRasterDensity) * 0.1;
 
     const gl = this.gl;
     if (gl) {
-      gl.uniform1f(this.uniforms.u_lava_transformation, contourTension);
-      gl.uniform1f(this.uniforms.u_lava_intensity, relief);
+      // u_lava_state -> STRIP COUNT (4 to 24)
+      // u_lava_next_state -> REASSEMBLY (0-1)
+      // u_lava_mix -> STRIP OFFSET
+      // u_lava_intensity -> RELIEF DEPTH
+      // u_lava_reveal -> SHATTER
+      // u_lava_transformation -> GLOBAL ENERGY
+      // u_represent_pulse -> BOUNCE
+      // u_represent_wave -> RASTER DENSITY
+      // u_represent_wave_color -> PLANE SHIFT
+      
+      const stripCount = 4.0 + Math.floor(this.options.eventDensity * 20.0);
+      
+      gl.uniform1f(this.uniforms.u_lava_state, stripCount);
+      gl.uniform1f(this.uniforms.u_lava_next_state, this.contourReassembly);
+      gl.uniform1f(this.uniforms.u_lava_mix, this.contourStripOffset);
+      gl.uniform1f(this.uniforms.u_lava_intensity, this.options.globalEffects);
+      gl.uniform1f(this.uniforms.u_lava_reveal, this.contourShatter);
+      gl.uniform1f(this.uniforms.u_lava_transformation, structuralEnergy);
+      
+      gl.uniform1f(this.uniforms.u_represent_pulse, this.contourBounce);
+      gl.uniform1f(this.uniforms.u_represent_wave, this.contourRasterDensity);
+      gl.uniform1f(this.uniforms.u_represent_wave_color, this.contourPlaneShift);
     }
   }
 
   private updateRepresent(context: MusicalContext) {
+    if (!context) return;
     const { events, state, time, energyTrend } = context;
     
     // Complex pulse: Multi-layered oscillation
     const basePulse = Math.sin(time * 0.5) * 0.2 + Math.sin(time * 1.2) * 0.1;
-    const kickPulse = events.kick * 0.8;
+    const kickPulse = events.rawKick * 0.9;
     
     this.representPulse = Math.max(this.representPulse, kickPulse);
     this.representPulse *= 0.88; // Slightly slower decay
@@ -1954,27 +2371,136 @@ class VisualEngine {
   }
 
   private updateSignalGlitch(context: MusicalContext) {
+    if (!context) return;
     const { events, state, energyTrend, time } = context;
     
-    // State-aware glitching
-    let triggerChance = 0.7;
-    if (state === MusicalState.BUILDING) triggerChance = 0.5;
-    if (state === MusicalState.PRE_DROP_TENSION) triggerChance = 0.3;
+    // Post-drop energy window
+    if ((state === MusicalState.DROP_RELEASE && context.confidence.drop > 0.8 && this.conductor.shouldTrigger('post_drop_spike', 1.0, 4.0, 2.0)) || this.macroDrop) {
+        this.postDropEnergy = 1.0;
+    }
+    this.postDropEnergy *= 0.98; // Slow decay for a short window
     
-    if (events.kick > 0.85 && this.conductor.shouldTrigger('glitch', triggerChance, 0.8)) {
-      this.glitchIntensity = 0.6 + Math.random() * 0.4;
-      this.glitchType = Math.floor(Math.random() * 5);
+    // Post-drop bounce and recoil logic
+    const isDrop = state === MusicalState.DROP_RELEASE || this.macroDrop;
+    const dropMultiplier = isDrop ? 2.0 : 1.0 + this.postDropEnergy * 1.5;
+    
+    // Add kick impact to bounce (overshoot and settle)
+    if ((events.rawKick > 0.4 && this.conductor.shouldTrigger('signal_bounce', 1.0, 0.05, 0.05)) || this.macroExtraBounce) {
+        this.signalGlitchBounce += (events.rawKick || 0.8) * 0.9 * dropMultiplier;
+    }
+    
+    // Add snare/clap impact to recoil
+    if ((events.rawSnare > 0.3 && this.conductor.shouldTrigger('signal_recoil', 1.0, 0.05, 0.05)) || this.macroExtraBounce) {
+        this.signalGlitchRecoil += (events.rawSnare || 0.8) * 1.1 * dropMultiplier;
+    }
+    
+    // Elastic settling (spring-like decay)
+    this.signalGlitchBounce += (0 - this.signalGlitchBounce) * 0.2;
+    this.signalGlitchRecoil += (0 - this.signalGlitchRecoil) * 0.25;
+    
+    this.signalGlitchBounce *= 0.82;
+    this.signalGlitchRecoil *= 0.78;
+
+    // State-aware glitching
+    let triggerChance = 0.95 + this.postDropEnergy * 0.1; // Increased base chance
+    if (state === MusicalState.BUILDING) triggerChance = 0.8;
+    if (state === MusicalState.PRE_DROP_TENSION) triggerChance = 0.6;
+    
+    let triggerThreshold = 0.6 - this.postDropEnergy * 0.3; // Lowered threshold for more action
+    if (events.beatAccent === 3) triggerThreshold = 0.2; // 16th beat accent
+    else if (events.beatAccent === 2) triggerThreshold = 0.3; // 8th beat accent
+    else if (events.beatAccent === 1) triggerThreshold = 0.4; // 4th beat accent
+
+    const densityMult = Math.max(0.05, 1.0 - this.options.eventDensity); // More aggressive density
+    if (events.rawKick > triggerThreshold && this.conductor.shouldTrigger('glitch', triggerChance, 0.4 * densityMult, 0.3 * densityMult)) {
+      this.glitchIntensity = 1.0 + Math.random() * 0.8 + this.postDropEnergy * 0.5; // Increased intensity
+      if (events.beatAccent >= 2) this.glitchIntensity += 0.5;
+      this.glitchType = Math.floor(Math.random() * 9); // Use all 9 glitch types
       if (state === MusicalState.PRE_DROP_TENSION) this.glitchType = 7; // More aggressive glitch
-      this.glitchDuration = 0.15 + Math.random() * 0.25;
+      if (events.beatAccent === 3) this.glitchType = 6; // Special glitch on 16th
+      this.glitchDuration = 0.15 + Math.random() * 0.3;
       this.glitchTime = time;
     }
     
-    this.glitchIntensity *= 0.85;
+    this.glitchIntensity *= 0.85; // Slightly slower decay for more presence
 
     const gl = this.gl;
     if (gl) {
       gl.uniform1f(this.uniforms.u_glitch_intensity, this.glitchIntensity);
-      gl.uniform1f(this.uniforms.u_glitch_type, this.glitchType);
+      gl.uniform1i(this.uniforms.u_glitch_type, this.glitchType);
+      
+      // Pass bounce and recoil to shader using existing uniforms
+      gl.uniform1f(this.uniforms.u_represent_pulse, this.signalGlitchBounce);
+      gl.uniform1f(this.uniforms.u_represent_wave, this.signalGlitchRecoil);
+    }
+  }
+
+  private updateKaleidoscope(context: MusicalContext) {
+    if (!context) return;
+    const { events, features, time } = context;
+
+    // 1. Rotation: Repaired curve - much slower, power-based scaling
+    // 0.5 is neutral, extremes are faster but still elegant
+    const motion = this.options.motionAmount;
+    const curve = Math.pow(Math.abs(motion - 0.5) * 2.0, 3.0) * Math.sign(motion - 0.5);
+    const baseRotationSpeed = curve * 0.015; // Max ~0.9 rad/s at extremes
+    const organicRotation = Math.sin(time * 0.1) * 0.005;
+    const bassRotation = events.rawBass * 0.01 * motion;
+    this.kaleidoscopeRotation += (baseRotationSpeed + organicRotation + bassRotation);
+
+    // 2. Pattern Drift: Slow offset movement (parallax feel)
+    const driftSpeed = this.options.transitionSpeed * 0.02;
+    this.kaleidoscopeDrift.x += Math.sin(time * 0.15) * driftSpeed;
+    this.kaleidoscopeDrift.y += Math.cos(time * 0.12) * driftSpeed;
+
+    // 3. Center Pulse & Tunnel Depth
+    // Kick drives the "expansion" from center
+    const kickPulse = events.rawKick * 0.4 * this.options.globalEffects;
+    this.kaleidoscopeCenterPulse = Math.max(this.kaleidoscopeCenterPulse * 0.9, kickPulse);
+    
+    // Tunnel depth: continuous movement + bass pressure
+    const tunnelSpeed = (this.options.transitionSpeed - 0.5) * 0.05;
+    this.kaleidoscopeTunnelDepth += tunnelSpeed + events.rawBass * 0.03;
+
+    // 4. Shape Morphing (Mids + Shimmer)
+    // Shapes morph from oval to angular based on mids and flicker (shimmer)
+    const targetMorph = (features.mid * 0.5 + features.high * 0.5 * this.options.flickerAmount) * this.options.eventDensity;
+    this.kaleidoscopeShapeMorph = this.kaleidoscopeShapeMorph * 0.95 + targetMorph * 0.05;
+
+    // 5. Shape Type Evolution
+    // Change shape family occasionally or based on phrase boundaries
+    if (events.isPhraseBoundary || (Math.random() < 0.002 * this.options.eventDensity)) {
+      this.kaleidoscopeShapeType = (this.kaleidoscopeShapeType + 1) % 4;
+    }
+
+    const gl = this.gl;
+    if (gl) {
+      // Reusing lava uniforms for kaleidoscope
+      // u_lava_state -> SIDES (4 to 16)
+      // u_lava_next_state -> SHAPE TYPE (0-3)
+      // u_lava_mix -> SHAPE MORPH (0-1)
+      // u_lava_intensity -> MIRROR DEPTH / SYMMETRY
+      // u_lava_reveal -> TUNNEL DEPTH (continuous)
+      // u_lava_transformation -> ROTATION (continuous)
+      // u_lava_is_logo -> CENTER LOCK (0 or 1)
+      
+      const sides = 4.0 + Math.floor(this.options.eventDensity * 12.0);
+      const shimmer = features.high * this.options.flickerAmount;
+      
+      gl.uniform1f(this.uniforms.u_lava_state, sides);
+      gl.uniform1f(this.uniforms.u_lava_next_state, this.kaleidoscopeShapeType);
+      gl.uniform1f(this.uniforms.u_lava_mix, this.kaleidoscopeShapeMorph);
+      gl.uniform1f(this.uniforms.u_lava_intensity, this.options.globalEffects);
+      gl.uniform1f(this.uniforms.u_lava_reveal, this.kaleidoscopeTunnelDepth);
+      gl.uniform1f(this.uniforms.u_lava_transformation, this.kaleidoscopeRotation);
+      gl.uniform1f(this.uniforms.u_lava_is_logo, this.options.enableCurvature ? 1.0 : 0.0);
+      
+      // Use represent uniforms for additional params
+      gl.uniform1f(this.uniforms.u_represent_pulse, this.kaleidoscopeCenterPulse);
+      gl.uniform1f(this.uniforms.u_represent_wave, shimmer);
+      
+      // We can use u_poster_crop for drift
+      gl.uniform2f(this.uniforms.u_poster_crop, this.kaleidoscopeDrift.x, this.kaleidoscopeDrift.y);
     }
   }
 
@@ -1998,12 +2524,27 @@ class VisualEngine {
     const low = context?.features.low || 0;
     const mid = context?.features.mid || 0;
     const high = context?.features.high || 0;
-    const kick = context?.events.kick || 0;
-    const bass = context?.events.bass || 0;
-    const snare = context?.events.snare || 0;
-    const hat = context?.events.hat || 0;
-    const buildup = context?.confidence.build || 0;
-    const drop = context?.confidence.drop || 0;
+    const kick = context?.events.rawKick || 0;
+    const bass = context?.events.smoothedBass || 0;
+    const snare = context?.events.rawSnare || 0;
+    const hat = context?.events.rawHat || 0;
+    let buildup = context?.confidence.build || 0;
+    let drop = context?.confidence.drop || 0;
+    
+    // Apply macros
+    if (this.macroBuildUp) buildup = Math.max(buildup, 0.8);
+    if (this.macroTension) {
+      this.glitchIntensity = Math.max(this.glitchIntensity, 0.6);
+      this.glitchType = 1; // Horizontal tearing
+    }
+    
+    // Decay drop pulse if triggered manually
+    if (this.dropPulse > 0) {
+      drop = Math.max(drop, this.dropPulse);
+      this.dropPulse *= 0.9;
+      if (this.dropPulse < 0.01) this.dropPulse = 0;
+    }
+
     const beatPhase = context?.beatPhase || 0;
     const barPhase = context?.barPhase || 0;
     const energyTrend = context?.energyTrend || 0;
@@ -2011,6 +2552,21 @@ class VisualEngine {
     // Update uniforms
     const gl = this.gl;
     if (!gl) return;
+
+    // Temporary Debug Logging
+    if (Math.floor(this.time * 2) % 20 === 0 && Math.random() < 0.05) { // Log occasionally
+      console.log('VIZR Render State:', {
+        mode: this.visualMode,
+        assets: {
+          bg: this.bgAssets.length,
+          poster: this.posterAssets.length,
+          overlay: this.overlayAssets.length,
+          logo: this.logoAssets.length
+        },
+        visibility: this.layerVisibility,
+        glitch: this.glitchIntensity > 0 ? this.glitchType : 'none'
+      });
+    }
 
     gl.uniform1f(this.uniforms.u_vol, vol);
     gl.uniform1f(this.uniforms.u_low, low);
@@ -2035,13 +2591,16 @@ class VisualEngine {
       this.updateRepresent(context!);
     } else if (this.visualMode === 'signal-glitch') {
       this.updateSignalGlitch(context!);
+    } else if (this.visualMode === 'kaleidoscope') {
+      this.updateKaleidoscope(context!);
     }
     // --- Asset Switching & Glitch Logic ---
     if (context) {
       const { events, features, state } = context;
       
+      const densityMult = Math.max(0.1, 1.5 - this.options.eventDensity);
       // Phrase Boundary or High Intensity Kick triggers asset switch
-      if (events.isPhraseBoundary || (events.kick > 0.9 && this.conductor.shouldTrigger('asset_switch', 0.8))) {
+      if (events.isPhraseBoundary || (events.rawKick > 0.85 && this.conductor.shouldTrigger('asset_switch', 0.8, 0.5 * densityMult, 0.5 * densityMult))) {
         const speedMult = Math.max(0.1, 2.0 - this.options.transitionSpeed * 1.9);
         
         if (Math.random() > 0.4 && this.time - this.lastBgChange > 2.0 * speedMult) {
@@ -2080,7 +2639,7 @@ class VisualEngine {
       if (this.options.enableGlitch) {
         if (state === MusicalState.BUILDING || state === MusicalState.PRE_DROP_TENSION) {
           // Increase glitch probability during building/tension
-          if (this.conductor.shouldTrigger('glitch_tension', 0.4, 0.4, 0.2)) {
+          if (this.conductor.shouldTrigger('glitch_tension', 0.4, 0.4 * densityMult, 0.2 * densityMult)) {
             this.glitchIntensity = 0.5 + Math.random() * 0.5;
             this.glitchType = Math.floor(Math.random() * 8) + 1;
             this.glitchDuration = 0.1;
@@ -2114,7 +2673,8 @@ class VisualEngine {
             pulse = 0.05 + Math.random() * 0.04;
         }
         
-        if (pulse > 0 && this.conductor.shouldTrigger('zoom_pulse', 0.6, 0.5, 0.2)) {
+        const densityMult = Math.max(0.1, 1.5 - this.options.eventDensity);
+        if (pulse > 0 && this.conductor.shouldTrigger('zoom_pulse', 0.6, 0.5 * densityMult, 0.2 * densityMult)) {
             this.targetZoom += pulse;
             this.zoomState = 'PULSE';
             this.pulseTimer = 0.1;
@@ -2139,15 +2699,15 @@ class VisualEngine {
     gl.useProgram(this.program);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.bgTex);
+    gl.bindTexture(gl.TEXTURE_2D, this.getTexture(this.bgAssets[this.bgIndex].image));
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.posterTex);
+    gl.bindTexture(gl.TEXTURE_2D, this.getTexture(this.posterAssets[this.posterIndex].image));
     gl.activeTexture(gl.TEXTURE2);
-    gl.bindTexture(gl.TEXTURE_2D, this.overlayTex);
+    gl.bindTexture(gl.TEXTURE_2D, this.getTexture(this.overlayAssets[this.overlayIndex].image));
     gl.activeTexture(gl.TEXTURE3);
-    gl.bindTexture(gl.TEXTURE_2D, this.logoTex);
+    gl.bindTexture(gl.TEXTURE_2D, this.getTexture(this.logoAssets[this.logoIndex].image));
     gl.activeTexture(gl.TEXTURE4);
-    gl.bindTexture(gl.TEXTURE_2D, this.flashTex);
+    gl.bindTexture(gl.TEXTURE_2D, this.getTexture(this.flashAssets[this.flashIndex].image));
 
     gl.uniform1f(this.uniforms.u_time, this.time);
     gl.uniform1f(this.uniforms.u_global_effects, this.options.globalEffects);
@@ -2160,6 +2720,7 @@ class VisualEngine {
     if (this.visualMode === 'lava-space') visualModeInt = 1;
     else if (this.visualMode === 'represent') visualModeInt = 2;
     else if (this.visualMode === 'contour') visualModeInt = 3;
+    else if (this.visualMode === 'kaleidoscope') visualModeInt = 4;
     gl.uniform1i(this.uniforms.u_visual_mode, visualModeInt);
 
     let colorModeInt = 0;
@@ -2179,10 +2740,16 @@ class VisualEngine {
     gl.uniform1f(this.uniforms.u_enable_noise, this.options.enableNoise ? 1.0 : 0.0);
     gl.uniform1f(this.uniforms.u_enable_flicker, this.options.enableFlicker ? 1.0 : 0.0);
     gl.uniform1f(this.uniforms.u_enable_rgb_split, this.options.enableRGBSplit ? 1.0 : 0.0);
-    gl.uniform1f(this.uniforms.u_enable_white_transparency, this.options.enableWhiteTransparency ? 1.0 : 0.0);
-    gl.uniform1f(this.uniforms.u_enable_black_transparency, this.options.enableBlackTransparency ? 1.0 : 0.0);
     gl.uniform1f(this.uniforms.u_enable_drift_offset, this.options.enableDriftOffset ? 1.0 : 0.0);
     gl.uniform1f(this.uniforms.u_enable_blob_dynamics, this.options.enableBlobDynamics ? 1.0 : 0.0);
+    
+    gl.uniform1f(this.uniforms.u_overlay_enabled, this.options.overlayEnabled ? 1.0 : 0.0);
+    let transMode = 0.0;
+    if (this.options.overlayTransparencyMode === 'black') transMode = 1.0;
+    else if (this.options.overlayTransparencyMode === 'white') transMode = 2.0;
+    gl.uniform1f(this.uniforms.u_overlay_trans_mode, transMode);
+    gl.uniform1f(this.uniforms.u_overlay_opacity, this.options.overlayOpacity / 100.0);
+    
     gl.uniform1f(this.uniforms.u_flicker_amount, this.options.flickerAmount);
     gl.uniform1f(this.uniforms.u_motion_amount, this.options.motionAmount);
     gl.uniform4f(this.uniforms.u_layer_visibility, this.layerVisibility[0], this.layerVisibility[1], this.layerVisibility[2], this.layerVisibility[3]);
@@ -2239,19 +2806,17 @@ class VisualEngine {
     }
     const gl = this.gl;
     if (gl) {
-      gl.deleteTexture(this.bgTex);
-      gl.deleteTexture(this.posterTex);
-      gl.deleteTexture(this.overlayTex);
-      gl.deleteTexture(this.logoTex);
-      gl.deleteTexture(this.flashTex);
+      this.textureCache.forEach(tex => gl.deleteTexture(tex));
+      this.textureCache.clear();
       if (this.program) gl.deleteProgram(this.program);
     }
   }
 }
 
-const AssetEditor = ({ assets, onAssetsChange, onClose }: { 
+const AssetEditor = ({ assets, onAssetsChange, onAddMore, onClose }: { 
   assets: AssetItem[], 
   onAssetsChange: (assets: AssetItem[]) => void,
+  onAddMore: () => void,
   onClose: () => void 
 }) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(assets.length > 0 ? 0 : null);
@@ -2273,6 +2838,16 @@ const AssetEditor = ({ assets, onAssetsChange, onClose }: {
     return `${type}__${aspect}__${color}__${behavior}.${ext}`;
   };
 
+  const removeAsset = (index: number) => {
+    const newAssets = assets.filter((_, i) => i !== index);
+    onAssetsChange(newAssets);
+    if (selectedIndex === index) {
+      setSelectedIndex(newAssets.length > 0 ? 0 : null);
+    } else if (selectedIndex !== null && selectedIndex > index) {
+      setSelectedIndex(selectedIndex - 1);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black text-neutral-300 font-mono flex flex-col z-50">
       {/* Header */}
@@ -2292,35 +2867,61 @@ const AssetEditor = ({ assets, onAssetsChange, onClose }: {
       <div className="flex-1 flex overflow-hidden">
         {/* LEFT: Image List */}
         <div className="w-64 border-r border-neutral-800 flex flex-col bg-neutral-950/50">
-          <div className="p-4 border-b border-neutral-800">
+          <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Assets ({assets.length})</span>
+            <button 
+              onClick={onAddMore}
+              className="p-1 hover:bg-neutral-800 rounded transition-colors text-indigo-400 hover:text-indigo-300"
+              title="Add more assets"
+            >
+              <Plus size={14} />
+            </button>
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {assets.map((asset, i) => (
-              <button
-                key={i}
-                onClick={() => setSelectedIndex(i)}
-                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-all text-left group ${
-                  selectedIndex === i ? 'bg-white text-black' : 'hover:bg-neutral-900'
-                }`}
-              >
-                <div className="w-10 h-10 rounded bg-neutral-800 overflow-hidden flex-shrink-0 border border-neutral-700/50">
-                  <img src={asset.image.src} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className={`text-[10px] font-bold truncate uppercase tracking-tight ${selectedIndex === i ? 'text-black' : 'text-neutral-300'}`}>
-                    {asset.file.name}
+              <div key={i} className="group relative">
+                <button
+                  onClick={() => setSelectedIndex(i)}
+                  className={`w-full flex items-center gap-3 p-2 rounded-lg transition-all text-left ${
+                    selectedIndex === i ? 'bg-white text-black' : 'hover:bg-neutral-900'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded bg-neutral-800 overflow-hidden flex-shrink-0 border border-neutral-700/50">
+                    <img src={asset.image.src} alt="" className="w-full h-full object-cover" />
                   </div>
-                  <div className={`text-[8px] uppercase tracking-widest mt-0.5 ${selectedIndex === i ? 'text-black/60' : 'text-neutral-600'}`}>
-                    {asset.metadata.type} • {asset.metadata.aspect}
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-[10px] font-bold truncate uppercase tracking-tight ${selectedIndex === i ? 'text-black' : 'text-neutral-300'}`}>
+                      {asset.file.name}
+                    </div>
+                    <div className={`text-[8px] uppercase tracking-widest mt-0.5 ${selectedIndex === i ? 'text-black/60' : 'text-neutral-600'}`}>
+                      {asset.metadata.type} • {asset.metadata.aspect}
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeAsset(i);
+                  }}
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-all opacity-0 group-hover:opacity-100 ${
+                    selectedIndex === i ? 'text-black/40 hover:text-black hover:bg-black/5' : 'text-neutral-600 hover:text-red-400 hover:bg-red-400/10'
+                  }`}
+                  title="Remove asset"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
             ))}
             {assets.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-neutral-600 p-4 text-center">
                 <ImageIcon size={24} className="mb-2 opacity-20" />
                 <span className="text-[10px] uppercase tracking-widest">No assets loaded</span>
+                <button 
+                  onClick={onAddMore}
+                  className="mt-4 px-3 py-2 border border-neutral-800 hover:border-neutral-600 text-[10px] uppercase tracking-widest transition-colors"
+                >
+                  Add Assets
+                </button>
               </div>
             )}
           </div>
@@ -2527,25 +3128,63 @@ export default function App() {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioError, setAudioError] = useState<string | null>(null);
   
-  const [visualMode, setVisualMode] = useState<'signal-glitch' | 'lava-space' | 'represent' | 'contour'>('signal-glitch');
-  const [colorMode, setColorMode] = useState<string>('mostly-mono');
+  const [controlState, setControlState] = useState<ControlState>(defaultControlState);
+
+  const { visualMode, colorMode } = controlState;
+
+  const {
+    enableGlitch, enableVHS, enableCurvature, enableNoise, enableFlicker, enableRGBSplit, enableDriftOffset, enableBlobDynamics
+  } = controlState.toggles;
   
-  const [enableGlitch, setEnableGlitch] = useState(true);
-  const [enableVHS, setEnableVHS] = useState(true);
-  const [enableCurvature, setEnableCurvature] = useState(true);
-  const [enableNoise, setEnableNoise] = useState(true);
-  const [enableFlicker, setEnableFlicker] = useState(true);
-  const [enableRGBSplit, setEnableRGBSplit] = useState(true);
-  const [enableWhiteTransparency, setEnableWhiteTransparency] = useState(false);
-  const [enableBlackTransparency, setEnableBlackTransparency] = useState(false);
-  const [enableDriftOffset, setEnableDriftOffset] = useState(false);
-  const [enableBlobDynamics, setEnableBlobDynamics] = useState(true);
+  const {
+    globalEffects, flickerAmount, motionAmount, eventDensity, transitionSpeed
+  } = controlState.sliders;
   
-  const [globalEffects, setGlobalEffects] = useState(0.8);
-  const [flickerAmount, setFlickerAmount] = useState(0.5);
-  const [motionAmount, setMotionAmount] = useState(0.5);
-  const [eventDensity, setEventDensity] = useState(0.5);
-  const [transitionSpeed, setTransitionSpeed] = useState(0.5);
+  const overlaySettings = controlState.overlaySettings;
+
+  const setVisualMode = (mode: ControlState['visualMode']) => {
+    setControlState(prev => ({ ...prev, visualMode: mode }));
+  };
+
+  const setColorMode = (mode: string) => {
+    setControlState(prev => ({ ...prev, colorMode: mode }));
+  };
+
+  const updateToggle = (key: keyof ControlState['toggles']) => (val: any) => {
+    setControlState(prev => ({
+      ...prev,
+      toggles: { ...prev.toggles, [key]: typeof val === 'function' ? val(prev.toggles[key]) : val }
+    }));
+  };
+
+  const updateSlider = (key: keyof ControlState['sliders']) => (val: any) => {
+    setControlState(prev => ({
+      ...prev,
+      sliders: { ...prev.sliders, [key]: typeof val === 'function' ? val(prev.sliders[key]) : val }
+    }));
+  };
+
+  const setEnableGlitch = updateToggle('enableGlitch');
+  const setEnableVHS = updateToggle('enableVHS');
+  const setEnableCurvature = updateToggle('enableCurvature');
+  const setEnableNoise = updateToggle('enableNoise');
+  const setEnableFlicker = updateToggle('enableFlicker');
+  const setEnableRGBSplit = updateToggle('enableRGBSplit');
+  const setEnableDriftOffset = updateToggle('enableDriftOffset');
+  const setEnableBlobDynamics = updateToggle('enableBlobDynamics');
+
+  const setGlobalEffects = updateSlider('globalEffects');
+  const setFlickerAmount = updateSlider('flickerAmount');
+  const setMotionAmount = updateSlider('motionAmount');
+  const setEventDensity = updateSlider('eventDensity');
+  const setTransitionSpeed = updateSlider('transitionSpeed');
+
+  const setOverlaySettings = (val: any) => {
+    setControlState(prev => ({
+      ...prev,
+      overlaySettings: typeof val === 'function' ? val(prev.overlaySettings) : val
+    }));
+  };
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [fadeOpacity, setFadeOpacity] = useState(0);
@@ -2553,6 +3192,7 @@ export default function App() {
   const [filePlaying, setFilePlaying] = useState(true);
   const [fileVolume, setFileVolume] = useState(1.0);
   const [showUI, setShowUI] = useState(false);
+  const [livePage, setLivePage] = useState<'settings' | 'performance'>('settings');
   const [showHint, setShowHint] = useState(true);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -2589,7 +3229,7 @@ export default function App() {
         loadedAssets.push({ image: img, metadata, file });
         loadedCount++;
         if (loadedCount === files.length) {
-          setAssets(loadedAssets);
+          setAssets(prev => [...prev, ...loadedAssets]);
         }
       };
       img.src = url;
@@ -2597,7 +3237,11 @@ export default function App() {
   };
 
   const handleShuffle = () => {
-    setAssets(prev => [...prev].sort(() => Math.random() - 0.5));
+    console.log("[VIZR] Shuffle triggered. Regenerating scene...");
+    setAssets(prev => {
+      if (prev.length === 0) return prev;
+      return [...prev].sort(() => Math.random() - 0.5);
+    });
   };
 
   const handleRandomize = () => {
@@ -2611,25 +3255,27 @@ export default function App() {
     setEnableRGBSplit(Math.random() > 0.3);
   };
 
+  const handleReset = () => {
+    setControlState({
+      ...defaultControlState,
+      visualMode: controlState.visualMode, // Preserve current mode
+      colorMode: controlState.colorMode
+    });
+  };
+
   const handleStart = () => {
     if (assets.length === 0) return;
     setIsPlaying(true);
   };
 
-  const stateRef = useRef({ 
-    motionAmount, globalEffects, eventDensity, flickerAmount, transitionSpeed,
-    enableGlitch, enableVHS, enableCurvature, enableNoise, enableFlicker, enableRGBSplit
-  });
+  const stateRef = useRef(controlState);
 
   useEffect(() => {
-    stateRef.current = { 
-      motionAmount, globalEffects, eventDensity, flickerAmount, transitionSpeed,
-      enableGlitch, enableVHS, enableCurvature, enableNoise, enableFlicker, enableRGBSplit, enableWhiteTransparency, enableBlackTransparency, enableDriftOffset
-    };
+    stateRef.current = controlState;
     if (socketRef.current) {
-      socketRef.current.emit('sync-state', roomId, stateRef.current);
+      socketRef.current.emit('FULL_CONTROL_STATE', roomId, controlState);
     }
-  }, [motionAmount, globalEffects, eventDensity, flickerAmount, transitionSpeed, enableGlitch, enableVHS, enableCurvature, enableNoise, enableFlicker, enableRGBSplit, enableWhiteTransparency, enableBlackTransparency, enableDriftOffset, roomId]);
+  }, [controlState, roomId]);
 
   useEffect(() => {
     if (isPlaying && !showUI) {
@@ -2658,15 +3304,17 @@ export default function App() {
       setRemoteState('WAITING');
     });
 
-    socket.on('request-sync', () => {
+    socket.on('REQUEST_CONTROL_STATE', () => {
       setRemoteState('CONNECTED');
       if (!isPlaying) {
         setIsPlaying(true);
       }
-      socket.emit('sync-state', roomId, stateRef.current);
+      socket.emit('FULL_CONTROL_STATE', roomId, stateRef.current);
     });
 
     socket.on('command', (cmd) => {
+      if (cmd.action === 'visualMode') setVisualMode(cmd.value);
+      if (cmd.action === 'colorMode') setColorMode(cmd.value);
       if (cmd.action === 'speed') setMotionAmount(cmd.value);
       if (cmd.action === 'intensity') setGlobalEffects(cmd.value);
       if (cmd.action === 'complexity') setEventDensity(cmd.value);
@@ -2678,7 +3326,17 @@ export default function App() {
       if (cmd.action === 'enableNoise') setEnableNoise(cmd.value);
       if (cmd.action === 'enableFlicker') setEnableFlicker(cmd.value);
       if (cmd.action === 'enableRGBSplit') setEnableRGBSplit(cmd.value);
+      if (cmd.action === 'enableDriftOffset') setEnableDriftOffset(cmd.value);
+      if (cmd.action === 'enableBlobDynamics') setEnableBlobDynamics(cmd.value);
+      if (cmd.action === 'overlaySettings') setOverlaySettings(cmd.value);
+      if (cmd.action === 'reset') handleReset();
+      if (cmd.action === 'macro') {
+        if (engineRef.current) {
+          engineRef.current.setMacro(cmd.value.name, cmd.value.active);
+        }
+      }
       if (cmd.action === 'shuffle') {
+        console.log("[VIZR] Remote shuffle received by host.");
         handleShuffle();
       }
       if (cmd.action === 'randomize') {
@@ -2733,7 +3391,13 @@ export default function App() {
         }
       );
     }
-  }, [isPlaying, assets, audioMode, deviceId, audioFile, visualMode]);
+  }, [isPlaying, audioMode, deviceId, audioFile, visualMode]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.updateAssets(assets);
+    }
+  }, [assets]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -2783,6 +3447,7 @@ export default function App() {
 
   useEffect(() => {
     if (engineRef.current) {
+      const currentOverlaySettings = overlaySettings[visualMode] || { enabled: true, mode: 'normal', opacity: 100 };
       engineRef.current.setOptions({
         enableGlitch,
         enableVHS,
@@ -2790,9 +3455,11 @@ export default function App() {
         enableNoise,
         enableFlicker,
         enableRGBSplit,
-        enableWhiteTransparency,
-        enableBlackTransparency,
         enableDriftOffset,
+        enableBlobDynamics,
+        overlayEnabled: currentOverlaySettings.enabled,
+        overlayTransparencyMode: currentOverlaySettings.mode,
+        overlayOpacity: currentOverlaySettings.opacity,
         globalEffects,
         flickerAmount,
         motionAmount,
@@ -2800,7 +3467,7 @@ export default function App() {
         transitionSpeed
       });
     }
-  }, [enableGlitch, enableVHS, enableCurvature, enableNoise, enableFlicker, enableRGBSplit, enableWhiteTransparency, enableBlackTransparency, enableDriftOffset, globalEffects, flickerAmount, motionAmount, eventDensity, transitionSpeed]);
+  }, [enableGlitch, enableVHS, enableCurvature, enableNoise, enableFlicker, enableRGBSplit, enableDriftOffset, enableBlobDynamics, overlaySettings, visualMode, globalEffects, flickerAmount, motionAmount, eventDensity, transitionSpeed]);
 
   useEffect(() => {
     return () => {
@@ -2815,6 +3482,7 @@ export default function App() {
       <AssetEditor 
         assets={assets} 
         onAssetsChange={setAssets} 
+        onAddMore={() => fileInputRef.current?.click()}
         onClose={() => setView('visualizer')} 
       />
     );
@@ -2868,7 +3536,26 @@ export default function App() {
                 <Square size={18} fill="currentColor" />
               </button>
               <div className="w-px h-4 bg-neutral-800" />
-              <span className="text-xs font-bold uppercase tracking-widest text-neutral-400">Controls</span>
+              
+              {/* PAGE SWITCHER */}
+              <div className="flex bg-neutral-900 rounded-lg p-1 border border-neutral-800">
+                <button
+                  onClick={() => setLivePage('settings')}
+                  className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors ${
+                    livePage === 'settings' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                  }`}
+                >
+                  Settings
+                </button>
+                <button
+                  onClick={() => setLivePage('performance')}
+                  className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors ${
+                    livePage === 'performance' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                  }`}
+                >
+                  Performance
+                </button>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               {audioMode === 'file' && (
@@ -2930,85 +3617,217 @@ export default function App() {
             </div>
           </div>
 
-          {/* Sliders Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-neutral-400 uppercase tracking-widest leading-none">Global</span>
-                <span className="text-[10px] text-neutral-600">{(globalEffects * 100).toFixed(0)}%</span>
+          {livePage === 'settings' ? (
+            <>
+              {/* Sliders Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest leading-none">
+                      {visualMode === 'kaleidoscope' ? 'Mirror Depth' : 'Global'}
+                    </span>
+                    <span className="text-[10px] text-neutral-600">{(globalEffects * 100).toFixed(0)}%</span>
+                  </div>
+                  <input 
+                    type="range" min="0" max="1" step="0.01"
+                    value={globalEffects}
+                    onChange={(e) => setGlobalEffects(parseFloat(e.target.value))}
+                    className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none rounded-full"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest leading-none">
+                      {visualMode === 'kaleidoscope' ? 'Shimmer' : 'Flicker'}
+                    </span>
+                    <span className="text-[10px] text-neutral-600">{(flickerAmount * 100).toFixed(0)}%</span>
+                  </div>
+                  <input 
+                    type="range" min="0" max="1" step="0.01"
+                    value={flickerAmount}
+                    onChange={(e) => setFlickerAmount(parseFloat(e.target.value))}
+                    className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none rounded-full"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest leading-none">
+                      {visualMode === 'kaleidoscope' ? 'Rotation' : 'Motion'}
+                    </span>
+                    <span className="text-[10px] text-neutral-600">{(motionAmount * 100).toFixed(0)}%</span>
+                  </div>
+                  <input 
+                    type="range" min="0" max="1" step="0.01"
+                    value={motionAmount}
+                    onChange={(e) => setMotionAmount(parseFloat(e.target.value))}
+                    className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none rounded-full"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest leading-none">
+                      {visualMode === 'kaleidoscope' ? 'Sides' : 'Density'}
+                    </span>
+                    <span className="text-[10px] text-neutral-600">{(eventDensity * 100).toFixed(0)}%</span>
+                  </div>
+                  <input 
+                    type="range" min="0" max="1" step="0.01"
+                    value={eventDensity}
+                    onChange={(e) => setEventDensity(parseFloat(e.target.value))}
+                    className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none rounded-full"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest leading-none">
+                      {visualMode === 'kaleidoscope' ? 'Pattern Drift' : 'Speed'}
+                    </span>
+                    <span className="text-[10px] text-neutral-600">{(transitionSpeed * 100).toFixed(0)}%</span>
+                  </div>
+                  <input 
+                    type="range" min="0" max="1" step="0.01"
+                    value={transitionSpeed}
+                    onChange={(e) => setTransitionSpeed(parseFloat(e.target.value))}
+                    className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none rounded-full"
+                  />
+                </div>
               </div>
-              <input 
-                type="range" min="0" max="1" step="0.01"
-                value={globalEffects}
-                onChange={(e) => setGlobalEffects(parseFloat(e.target.value))}
-                className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none rounded-full"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-neutral-400 uppercase tracking-widest leading-none">Flicker</span>
-                <span className="text-[10px] text-neutral-600">{(flickerAmount * 100).toFixed(0)}%</span>
-              </div>
-              <input 
-                type="range" min="0" max="1" step="0.01"
-                value={flickerAmount}
-                onChange={(e) => setFlickerAmount(parseFloat(e.target.value))}
-                className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none rounded-full"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-neutral-400 uppercase tracking-widest leading-none">Motion</span>
-                <span className="text-[10px] text-neutral-600">{(motionAmount * 100).toFixed(0)}%</span>
-              </div>
-              <input 
-                type="range" min="0" max="1" step="0.01"
-                value={motionAmount}
-                onChange={(e) => setMotionAmount(parseFloat(e.target.value))}
-                className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none rounded-full"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-neutral-400 uppercase tracking-widest leading-none">Density</span>
-                <span className="text-[10px] text-neutral-600">{(eventDensity * 100).toFixed(0)}%</span>
-              </div>
-              <input 
-                type="range" min="0" max="1" step="0.01"
-                value={eventDensity}
-                onChange={(e) => setEventDensity(parseFloat(e.target.value))}
-                className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none rounded-full"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-neutral-400 uppercase tracking-widest leading-none">Speed</span>
-                <span className="text-[10px] text-neutral-600">{(transitionSpeed * 100).toFixed(0)}%</span>
-              </div>
-              <input 
-                type="range" min="0" max="1" step="0.01"
-                value={transitionSpeed}
-                onChange={(e) => setTransitionSpeed(parseFloat(e.target.value))}
-                className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none rounded-full"
-              />
-            </div>
-          </div>
 
-          {/* Toggles Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 pt-2 border-t border-neutral-800/50">
-            <ToggleSwitch label={visualMode === 'signal-glitch' ? "Glitch" : "Fluid"} checked={enableGlitch} onChange={setEnableGlitch} />
-            <ToggleSwitch label={visualMode === 'signal-glitch' ? "VHS" : "Dust"} checked={enableVHS} onChange={setEnableVHS} />
-            <ToggleSwitch label={visualMode === 'signal-glitch' ? "Curve" : "Lens"} checked={enableCurvature} onChange={setEnableCurvature} />
-            <ToggleSwitch label={visualMode === 'signal-glitch' ? "Noise" : "Grain"} checked={enableNoise} onChange={setEnableNoise} />
-            <ToggleSwitch label={visualMode === 'signal-glitch' ? "Flicker" : "Pulse"} checked={enableFlicker} onChange={setEnableFlicker} />
-            <ToggleSwitch label={visualMode === 'signal-glitch' ? "RGB" : "Aura"} checked={enableRGBSplit} onChange={setEnableRGBSplit} />
-            <ToggleSwitch label={visualMode === 'signal-glitch' ? "White Transp." : "Deep Void"} checked={enableWhiteTransparency} onChange={setEnableWhiteTransparency} />
-            <ToggleSwitch label={visualMode === 'signal-glitch' ? "Black Transp." : "Dark Matter"} checked={enableBlackTransparency} onChange={setEnableBlackTransparency} />
-            <ToggleSwitch label={visualMode === 'signal-glitch' ? "Drift Offset" : "Cosmic Drift"} checked={enableDriftOffset} onChange={setEnableDriftOffset} />
-            {visualMode === 'lava-space' && (
-              <ToggleSwitch label="Blob Dynamics" checked={enableBlobDynamics} onChange={setEnableBlobDynamics} />
-            )}
-          </div>
+              {/* Toggles Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 pt-2 border-t border-neutral-800/50">
+                <ToggleSwitch label={visualMode === 'signal-glitch' ? "Glitch" : (visualMode === 'kaleidoscope' ? "Symmetry Break" : "Fluid")} checked={enableGlitch} onChange={setEnableGlitch} />
+                <ToggleSwitch label={visualMode === 'signal-glitch' ? "VHS" : (visualMode === 'kaleidoscope' ? "Multi Layer" : "Dust")} checked={enableVHS} onChange={setEnableVHS} />
+                <ToggleSwitch label={visualMode === 'signal-glitch' ? "Curve" : (visualMode === 'kaleidoscope' ? "Center Lock" : "Lens")} checked={enableCurvature} onChange={setEnableCurvature} />
+                <ToggleSwitch label={visualMode === 'signal-glitch' ? "Noise" : (visualMode === 'kaleidoscope' ? "Radial Zoom" : "Grain")} checked={enableNoise} onChange={setEnableNoise} />
+                <ToggleSwitch label={visualMode === 'signal-glitch' ? "Flicker" : (visualMode === 'kaleidoscope' ? "Pulse" : "Pulse")} checked={enableFlicker} onChange={setEnableFlicker} />
+                <ToggleSwitch label={visualMode === 'signal-glitch' ? "RGB" : (visualMode === 'kaleidoscope' ? "Prism" : "Aura")} checked={enableRGBSplit} onChange={setEnableRGBSplit} />
+                <ToggleSwitch label={visualMode === 'signal-glitch' ? "Drift Offset" : "Cosmic Drift"} checked={enableDriftOffset} onChange={setEnableDriftOffset} />
+                {visualMode === 'lava-space' && (
+                  <ToggleSwitch label="Blob Dynamics" checked={enableBlobDynamics} onChange={setEnableBlobDynamics} />
+                )}
+              </div>
+
+              {/* Overlay Settings */}
+              {visualMode !== 'represent' && (
+                <div className="pt-4 border-t border-neutral-800/50 space-y-4">
+                  <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">Overlay Settings</label>
+                  <div className="space-y-3">
+                    <ToggleSwitch 
+                      label="Enable Overlay" 
+                      checked={overlaySettings[visualMode]?.enabled ?? true} 
+                      onChange={(val) => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], enabled: val } }))} 
+                    />
+                    
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-neutral-400 uppercase">Opacity</span>
+                        <span className="text-xs text-neutral-500">{overlaySettings[visualMode]?.opacity ?? 100}%</span>
+                      </div>
+                      <input 
+                        type="range" 
+                        min="0" max="100" step="1"
+                        value={overlaySettings[visualMode]?.opacity ?? 100}
+                        onChange={(e) => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], opacity: parseInt(e.target.value) } }))}
+                        className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2 pt-2 border-t border-neutral-800">
+                      <div className="flex bg-neutral-900 rounded-lg p-1 border border-neutral-800">
+                        <button
+                          onClick={() => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], mode: 'black' } }))}
+                          className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-md transition-colors ${
+                            (overlaySettings[visualMode]?.mode ?? 'normal') === 'black' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                          }`}
+                        >
+                          Black
+                        </button>
+                        <button
+                          onClick={() => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], mode: 'white' } }))}
+                          className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-md transition-colors ${
+                            (overlaySettings[visualMode]?.mode ?? 'normal') === 'white' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                          }`}
+                        >
+                          White
+                        </button>
+                        <button
+                          onClick={() => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], mode: 'normal' } }))}
+                          className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-md transition-colors ${
+                            (overlaySettings[visualMode]?.mode ?? 'normal') === 'normal' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                          }`}
+                        >
+                          Normal
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col gap-6 pt-2">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest leading-none">Intensity</span>
+                    <span className="text-xs text-neutral-600">{(globalEffects * 100).toFixed(0)}%</span>
+                  </div>
+                  <input 
+                    type="range" min="0" max="1" step="0.01"
+                    value={globalEffects}
+                    onChange={(e) => setGlobalEffects(parseFloat(e.target.value))}
+                    className="w-full h-3 accent-white bg-neutral-800 appearance-none outline-none rounded-full"
+                  />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest leading-none">Motion</span>
+                    <span className="text-xs text-neutral-600">{(motionAmount * 100).toFixed(0)}%</span>
+                  </div>
+                  <input 
+                    type="range" min="0" max="1" step="0.01"
+                    value={motionAmount}
+                    onChange={(e) => setMotionAmount(parseFloat(e.target.value))}
+                    className="w-full h-3 accent-white bg-neutral-800 appearance-none outline-none rounded-full"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <button
+                  onPointerDown={() => engineRef.current?.setMacro('buildUp', true)}
+                  onPointerUp={() => engineRef.current?.setMacro('buildUp', false)}
+                  onPointerLeave={() => engineRef.current?.setMacro('buildUp', false)}
+                  className="h-16 bg-neutral-900 hover:bg-neutral-800 active:bg-white active:text-black border border-neutral-800 rounded-xl font-bold uppercase tracking-widest text-xs transition-all duration-150 select-none"
+                >
+                  Build Up
+                </button>
+                <button
+                  onPointerDown={() => engineRef.current?.setMacro('tension', true)}
+                  onPointerUp={() => engineRef.current?.setMacro('tension', false)}
+                  onPointerLeave={() => engineRef.current?.setMacro('tension', false)}
+                  className="h-16 bg-neutral-900 hover:bg-neutral-800 active:bg-white active:text-black border border-neutral-800 rounded-xl font-bold uppercase tracking-widest text-xs transition-all duration-150 select-none"
+                >
+                  Tension
+                </button>
+                <button
+                  onPointerDown={() => engineRef.current?.setMacro('drop', true)}
+                  onPointerUp={() => engineRef.current?.setMacro('drop', false)}
+                  onPointerLeave={() => engineRef.current?.setMacro('drop', false)}
+                  className="h-16 bg-neutral-900 hover:bg-neutral-800 active:bg-white active:text-black border border-neutral-800 rounded-xl font-bold uppercase tracking-widest text-xs transition-all duration-150 select-none"
+                >
+                  Drop
+                </button>
+                <button
+                  onPointerDown={() => engineRef.current?.setMacro('extraBounce', true)}
+                  onPointerUp={() => engineRef.current?.setMacro('extraBounce', false)}
+                  onPointerLeave={() => engineRef.current?.setMacro('extraBounce', false)}
+                  className="h-16 bg-neutral-900 hover:bg-neutral-800 active:bg-white active:text-black border border-neutral-800 rounded-xl font-bold uppercase tracking-widest text-xs transition-all duration-150 select-none"
+                >
+                  Extra Bounce
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -3204,11 +4023,12 @@ export default function App() {
               <select 
                 value={visualMode} 
                 onChange={e => {
-                  const newMode = e.target.value as 'signal-glitch' | 'lava-space' | 'represent' | 'contour';
+                  const newMode = e.target.value as 'signal-glitch' | 'lava-space' | 'represent' | 'contour' | 'kaleidoscope';
                   setVisualMode(newMode);
                   if (newMode === 'signal-glitch') setColorMode('mostly-mono');
                   else if (newMode === 'lava-space') setColorMode('cosmic-flow');
                   else if (newMode === 'contour') setColorMode('print-black');
+                  else if (newMode === 'kaleidoscope') setColorMode('mostly-mono');
                   else setColorMode('atmospheric');
                 }}
                 className="w-full p-3 bg-neutral-950 border border-neutral-800 text-sm uppercase tracking-wide text-neutral-300 outline-none focus:border-neutral-500"
@@ -3217,6 +4037,7 @@ export default function App() {
                 <option value="lava-space">LAVA SPACE</option>
                 <option value="represent">REPRESENT MODE</option>
                 <option value="contour">CONTOUR</option>
+                <option value="kaleidoscope">KALEIDOSCOPE</option>
               </select>
             </div>
 
@@ -3245,6 +4066,13 @@ export default function App() {
                     <option value="topo-relief">TOPO RELIEF</option>
                     <option value="spectral-contour">SPECTRAL CONTOUR</option>
                   </>
+                ) : visualMode === 'kaleidoscope' ? (
+                  <>
+                    <option value="prism">PRISM</option>
+                    <option value="tube-light">TUBE LIGHT</option>
+                    <option value="glass-bloom">GLASS BLOOM</option>
+                    <option value="chroma-wheel">CHROMA WHEEL</option>
+                  </>
                 ) : (
                   <>
                     <option value="cosmic-flow">COSMIC FLOW</option>
@@ -3262,7 +4090,7 @@ export default function App() {
             <div className="space-y-3">
               <div className="space-y-1">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-neutral-400 uppercase">Global</span>
+                  <span className="text-xs text-neutral-400 uppercase">{visualMode === 'kaleidoscope' ? 'Mirror Depth' : (visualMode === 'contour' ? 'Structure' : 'Global')}</span>
                   <span className="text-xs text-neutral-500">{(globalEffects * 100).toFixed(0)}%</span>
                 </div>
                 <input 
@@ -3277,7 +4105,7 @@ export default function App() {
               <div className="space-y-1">
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-neutral-400 uppercase">Smooth</span>
-                  <span className="text-xs text-neutral-400 uppercase">{visualMode === 'signal-glitch' ? 'Flicker' : 'Fluid Amount'}</span>
+                  <span className="text-xs text-neutral-400 uppercase">{visualMode === 'signal-glitch' ? 'Flicker' : (visualMode === 'kaleidoscope' ? 'Shimmer' : (visualMode === 'contour' ? 'Raster Density' : 'Fluid Amount'))}</span>
                 </div>
                 <input 
                   type="range" 
@@ -3290,7 +4118,7 @@ export default function App() {
 
               <div className="space-y-1">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-neutral-400 uppercase">Motion Amount</span>
+                  <span className="text-xs text-neutral-400 uppercase">{visualMode === 'kaleidoscope' ? 'Rotation' : (visualMode === 'contour' ? 'Structural Motion' : 'Motion Amount')}</span>
                   <span className="text-xs text-neutral-500">{(motionAmount * 100).toFixed(0)}%</span>
                 </div>
                 <input 
@@ -3304,7 +4132,7 @@ export default function App() {
 
               <div className="space-y-1">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-neutral-400 uppercase">{visualMode === 'signal-glitch' ? 'Event Density' : 'Wave Density'}</span>
+                  <span className="text-xs text-neutral-400 uppercase">{visualMode === 'signal-glitch' ? 'Event Density' : (visualMode === 'kaleidoscope' ? 'Sides' : (visualMode === 'contour' ? 'Strip Count' : 'Wave Density'))}</span>
                   <span className="text-xs text-neutral-500">{(eventDensity * 100).toFixed(0)}%</span>
                 </div>
                 <input 
@@ -3318,7 +4146,7 @@ export default function App() {
 
               <div className="space-y-1">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-neutral-400 uppercase">Transition Speed</span>
+                  <span className="text-xs text-neutral-400 uppercase">{visualMode === 'kaleidoscope' ? 'Pattern Drift' : (visualMode === 'contour' ? 'Reassembly' : 'Transition Speed')}</span>
                   <span className="text-xs text-neutral-500">{(transitionSpeed * 100).toFixed(0)}%</span>
                 </div>
                 <input 
@@ -3340,20 +4168,75 @@ export default function App() {
               <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">6. Visual Toggles</label>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Glitch Effects" : visualMode === 'lava-space' ? "Fluid Distortion" : visualMode === 'contour' ? "Structural Slicing" : "Logo Reactivity"} checked={enableGlitch} onChange={setEnableGlitch} />
-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "VHS Overlay" : visualMode === 'lava-space' ? "Space Dust" : visualMode === 'contour' ? "Print Texture" : "Atmospheric Grain"} checked={enableVHS} onChange={setEnableVHS} />
-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Screen Curvature" : visualMode === 'lava-space' ? "Liquid Lens" : visualMode === 'contour' ? "Relief Bend" : "Spatial Bend"} checked={enableCurvature} onChange={setEnableCurvature} />
-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Noise Layer" : visualMode === 'lava-space' ? "Star Grain" : visualMode === 'contour' ? "Erosion Noise" : "Energy Noise"} checked={enableNoise} onChange={setEnableNoise} />
-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Flicker" : visualMode === 'lava-space' ? "Glow Pulse" : visualMode === 'contour' ? "Contour Pulse" : "Glow Pulse"} checked={enableFlicker} onChange={setEnableFlicker} />
-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "RGB Split" : visualMode === 'lava-space' ? "Aura Shift" : visualMode === 'contour' ? "Moiré Shift" : "Color Shift"} checked={enableRGBSplit} onChange={setEnableRGBSplit} />
-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "White Transp." : visualMode === 'lava-space' ? "Deep Void" : visualMode === 'contour' ? "White Mask" : "Logo Mask"} checked={enableWhiteTransparency} onChange={setEnableWhiteTransparency} />
-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Black Transp." : visualMode === 'lava-space' ? "Dark Matter" : visualMode === 'contour' ? "Black Mask" : "Dark Void"} checked={enableBlackTransparency} onChange={setEnableBlackTransparency} />
-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Drift Offset" : visualMode === 'lava-space' ? "Cosmic Drift" : visualMode === 'contour' ? "Topographic Drift" : "Subtle Drift"} checked={enableDriftOffset} onChange={setEnableDriftOffset} />
+              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Glitch Effects" : visualMode === 'lava-space' ? "Fluid Distortion" : visualMode === 'contour' ? "Shatter" : visualMode === 'kaleidoscope' ? "Symmetry Break" : "Logo Reactivity"} checked={enableGlitch} onChange={setEnableGlitch} />
+              <ToggleSwitch label={visualMode === 'signal-glitch' ? "VHS Overlay" : visualMode === 'lava-space' ? "Space Dust" : visualMode === 'contour' ? "Raster Layer" : visualMode === 'kaleidoscope' ? "Multi Layer" : "Atmospheric Grain"} checked={enableVHS} onChange={setEnableVHS} />
+              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Screen Curvature" : visualMode === 'lava-space' ? "Liquid Lens" : visualMode === 'contour' ? "Plane Shift" : visualMode === 'kaleidoscope' ? "Center Lock" : "Spatial Bend"} checked={enableCurvature} onChange={setEnableCurvature} />
+              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Noise Layer" : visualMode === 'lava-space' ? "Star Grain" : visualMode === 'contour' ? "Depth Noise" : visualMode === 'kaleidoscope' ? "Radial Zoom" : "Energy Noise"} checked={enableNoise} onChange={setEnableNoise} />
+              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Flicker" : visualMode === 'lava-space' ? "Glow Pulse" : visualMode === 'contour' ? "Bounce" : visualMode === 'kaleidoscope' ? "Depth Logo" : "Glow Pulse"} checked={enableFlicker} onChange={setEnableFlicker} />
+              <ToggleSwitch label={visualMode === 'signal-glitch' ? "RGB Split" : visualMode === 'lava-space' ? "Aura Shift" : visualMode === 'contour' ? "Structural Shift" : visualMode === 'kaleidoscope' ? "Overlay Merge" : "Color Shift"} checked={enableRGBSplit} onChange={setEnableRGBSplit} />
+              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Drift Offset" : visualMode === 'lava-space' ? "Cosmic Drift" : visualMode === 'contour' ? "Structural Drift" : "Subtle Drift"} checked={enableDriftOffset} onChange={setEnableDriftOffset} />
               {visualMode === 'lava-space' && (
                 <ToggleSwitch label="Blob Dynamics" checked={enableBlobDynamics} onChange={setEnableBlobDynamics} />
               )}
             </div>
           </div>
+
+            {/* Overlay Settings */}
+            {visualMode !== 'represent' && (
+              <div className="space-y-4">
+                <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">7. Overlay Settings</label>
+                <div className="space-y-3">
+                  <ToggleSwitch 
+                    label="Enable Overlay" 
+                    checked={overlaySettings[visualMode]?.enabled ?? true} 
+                    onChange={(val) => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], enabled: val } }))} 
+                  />
+                  
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-neutral-400 uppercase">Opacity</span>
+                      <span className="text-xs text-neutral-500">{overlaySettings[visualMode]?.opacity ?? 100}%</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0" max="100" step="1"
+                      value={overlaySettings[visualMode]?.opacity ?? 100}
+                      onChange={(e) => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], opacity: parseInt(e.target.value) } }))}
+                      className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2 pt-2 border-t border-neutral-800">
+                    <div className="flex bg-neutral-900 rounded-lg p-1 border border-neutral-800">
+                      <button
+                        onClick={() => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], mode: 'black' } }))}
+                        className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-md transition-colors ${
+                          (overlaySettings[visualMode]?.mode ?? 'normal') === 'black' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                        }`}
+                      >
+                        Black
+                      </button>
+                      <button
+                        onClick={() => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], mode: 'white' } }))}
+                        className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-md transition-colors ${
+                          (overlaySettings[visualMode]?.mode ?? 'normal') === 'white' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                        }`}
+                      >
+                        White
+                      </button>
+                      <button
+                        onClick={() => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], mode: 'normal' } }))}
+                        className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-md transition-colors ${
+                          (overlaySettings[visualMode]?.mode ?? 'normal') === 'normal' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                        }`}
+                      >
+                        Normal
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="mt-auto space-y-4 pt-8 lg:pt-0">
               {/* Start Button */}
@@ -3389,7 +4272,7 @@ export default function App() {
           <button onClick={() => setShowImpressumModal(true)} className="hover:text-white transition-colors">Impressum</button>
         </div>
         <div className="text-[10px] text-neutral-600 font-mono tracking-wider flex flex-col items-center gap-2">
-          <span>VIZR © 2026 // Web-Based Visualization System</span>
+          <span>VIZR v2.0 beta © 2026 // Web-Based Visualization System</span>
           <span>vibecoded by kvssi</span>
         </div>
       </footer>
@@ -3471,7 +4354,7 @@ export default function App() {
               <p>No installation required. Zero data exfiltration. Maximum performance and privacy.</p>
               <div className="pt-4 mt-4 border-t border-neutral-800">
                 <p className="text-emerald-500 font-mono text-xs">vibecoded by kvssi</p>
-                <p className="text-neutral-600 font-mono text-[10px] mt-1">Version 2.0.4 // Build 2026</p>
+                <p className="text-neutral-600 font-mono text-[10px] mt-1">Version 2.0 beta // Build 2026</p>
               </div>
             </div>
           </div>

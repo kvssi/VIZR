@@ -7,7 +7,7 @@ VIZR ist ein browserbasiertes Visual-System, das auf React und WebGL basiert. Es
 Das System besteht aus vier Hauptkomponenten:
 1. **Benutzeroberfläche (React):** Verarbeitet Benutzereingaben (Datei-Uploads, Audioquellen-Auswahl, globale Effekt-Regler).
 2. **Audio-Analyzer (Web Audio API):** Analysiert das eingehende Audiosignal in Echtzeit und extrahiert musikalische Merkmale (Kick, Clap, Hi-Hats, Bass Groove). Beinhaltet robustes Error-Handling für asynchrone Play/Pause-Events.
-3. **Visual Engine (WebGL):** Rendert die hochgeladenen Bilder basierend auf den Audio-Daten und den zugewiesenen Rollen. Implementiert komplexe Shader-Logik wie "White Transparency" und ein zustandsbasiertes Zoom-System (Hold, Drift, Pulse).
+3. **Visual Engine (WebGL):** Rendert die hochgeladenen Bilder basierend auf den Audio-Daten und den zugewiesenen Rollen. Implementiert komplexe Shader-Logik wie "Transparency Modes" und ein zustandsbasiertes Zoom-System (Hold, Drift, Pulse).
 4. **Backend (Express & Socket.io):** Ein leichtgewichtiges Node.js-Backend, das die Echtzeit-Synchronisation zwischen der Hauptanwendung und der Smartphone-Fernbedienung (VIZR Remote) ermöglicht.
 
 ## Layer-System
@@ -15,7 +15,7 @@ Das System besteht aus vier Hauptkomponenten:
 VIZR nutzt ein Layer-System, um Bilder intelligent zu kombinieren. Bilder werden nicht einfach übereinandergelegt, sondern in verschiedene Rollen (Layer) eingeteilt:
 
 1. **Background (bg):** Das Hintergrundbild. Es füllt den gesamten Bildschirm aus und reagiert auf langsame, tiefe Frequenzen (Bass Groove). Bleibt vom Beat-Zoom unberührt, um räumliche Tiefe zu wahren.
-2. **Poster (fg/mid):** Das Hauptbild. Es wird im Vordergrund platziert und reagiert stark auf musikalische Akzente (voller Beat-Synced Zoom). Helle Bereiche können durch "White Transparency" weich ausgeblendet werden.
+2. **Poster (fg/mid):** Das Hauptbild. Es wird im Vordergrund platziert und reagiert stark auf musikalische Akzente (voller Beat-Synced Zoom). Helle Bereiche können durch "Transparency Modes" weich ausgeblendet werden.
 3. **Logo / Overlay:** Schwebende Elemente, Texturen oder Logos. Sie werden kleiner skaliert, reagieren auf hohe Frequenzen (Hi-Hats) und machen den Beat-Zoom nur leicht mit (Parallax-Effekt).
 4. **Flash:** Kurze Event-Elemente, die nur bei starken Audio-Peaks (z.B. lauten Kicks oder Drops) sichtbar werden. Bleiben statisch im Raum.
 

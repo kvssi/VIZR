@@ -6,6 +6,12 @@ VIZR übersetzt Audiosignale in visuelle Effekte. Das System analysiert das eing
 
 Das Audio-System (`AudioAnalyzer`) nutzt die Web Audio API, um das Audiosignal in Frequenzbänder (Low, Mid, High) aufzuteilen und Transienten (schnelle Lautstärkeänderungen) zu erkennen. Diese Daten werden an die Visual Engine (WebGL) übergeben, um die visuellen Effekte zu steuern.
 
+### Dual Event Model (Raw vs. Smoothed)
+
+VIZR nutzt ein "Dual Event Model", um sowohl harte Einschläge als auch fließende Bewegungen perfekt abzubilden:
+- **Raw Pulses:** Schnelle, ungedämpfte Signale (z.B. `rawKick`, `rawSnare`). Diese treiben harte, perkussive Events an: Glitch-Trigger, Slice-Effekte, Strukturwechsel und starke visuelle Akzente. Sie sorgen für den "Punch" und die Lebendigkeit des Systems.
+- **Smoothed Envelopes:** Geglättete Signale mit langsamerem Decay (z.B. `smoothedBass`). Diese steuern kontinuierliche Bewegungen: langsamer Drift, Kamera-Fahrten, atmosphärisches Atmen und weiche Überblendungen.
+
 ### Frequenzbänder
 
 - **Low (Bass):** Tiefe Frequenzen (z.B. Kick-Drum, Bassline).

@@ -24,7 +24,7 @@ async function startServer() {
       
       if (role === 'remote') {
         // Ask host to sync state to the new remote
-        socket.to(roomId).emit('request-sync');
+        socket.to(roomId).emit('REQUEST_CONTROL_STATE');
         // Notify host that remote connected
         socket.to(roomId).emit('remote-connected');
       } else if (role === 'host') {
@@ -33,7 +33,7 @@ async function startServer() {
       }
     });
 
-    socket.on('sync-state', (roomId, state) => {
+    socket.on('FULL_CONTROL_STATE', (roomId, state) => {
       socket.to(roomId).emit('state-update', state);
     });
 

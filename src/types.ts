@@ -19,11 +19,26 @@ export interface SignalFeatures {
 }
 
 export interface MusicalEvents {
+  // Raw pulses (fast decay, high impact)
+  rawKick: number;
+  rawSnare: number;
+  rawHat: number;
+  rawBass: number;
+  
+  // Smoothed envelopes (slow decay, continuous motion)
+  smoothedKick: number;
+  smoothedSnare: number;
+  smoothedHat: number;
+  smoothedBass: number;
+  
+  // Legacy aliases (mapped to smoothed by default to prevent breaking changes, but we'll update usages)
   kick: number;
   snare: number;
   hat: number;
   bass: number;
+  
   isPhraseBoundary: boolean;
+  beatAccent: number; // 0: normal, 1: 4th beat, 2: 8th beat, 3: 16th beat
   intensity: number;
 }
 
@@ -51,3 +66,59 @@ export interface MaterialInstructions {
   structuralTension: number;
   impact: number;
 }
+
+export interface ControlState {
+  visualMode: 'signal-glitch' | 'lava-space' | 'represent' | 'contour' | 'kaleidoscope';
+  colorMode: string;
+  toggles: {
+    enableGlitch: boolean;
+    enableVHS: boolean;
+    enableCurvature: boolean;
+    enableNoise: boolean;
+    enableFlicker: boolean;
+    enableRGBSplit: boolean;
+    enableDriftOffset: boolean;
+    enableBlobDynamics: boolean;
+  };
+  sliders: {
+    globalEffects: number;
+    flickerAmount: number;
+    motionAmount: number;
+    eventDensity: number;
+    transitionSpeed: number;
+  };
+  overlaySettings: Record<string, {
+    enabled: boolean;
+    mode: 'normal' | 'black' | 'white';
+    opacity: number;
+  }>;
+}
+
+export const defaultControlState: ControlState = {
+  visualMode: 'signal-glitch',
+  colorMode: 'mostly-mono',
+  toggles: {
+    enableGlitch: false,
+    enableVHS: false,
+    enableCurvature: false,
+    enableNoise: false,
+    enableFlicker: false,
+    enableRGBSplit: false,
+    enableDriftOffset: false,
+    enableBlobDynamics: false,
+  },
+  sliders: {
+    globalEffects: 0.5,
+    flickerAmount: 0.5,
+    motionAmount: 0.5,
+    eventDensity: 0.5,
+    transitionSpeed: 0.5,
+  },
+  overlaySettings: {
+    'signal-glitch': { enabled: false, mode: 'normal', opacity: 50 },
+    'lava-space': { enabled: false, mode: 'normal', opacity: 50 },
+    'represent': { enabled: false, mode: 'normal', opacity: 50 },
+    'contour': { enabled: false, mode: 'normal', opacity: 50 },
+    'kaleidoscope': { enabled: false, mode: 'normal', opacity: 50 },
+  }
+};

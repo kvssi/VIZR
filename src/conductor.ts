@@ -16,10 +16,17 @@ export class Conductor {
   private repetitionMemory: Record<string, number> = {};
   private lastMusicalContextTime: number = 0;
 
+  private rawKick: number = 0;
+  private rawSnare: number = 0;
+  private rawHat: number = 0;
+  private rawBass: number = 0;
+
   private smoothedKick: number = 0;
   private smoothedSnare: number = 0;
   private smoothedHat: number = 0;
   private smoothedBass: number = 0;
+
+  private absoluteBeatCount: number = 0;
 
   constructor() {}
 
@@ -36,18 +43,27 @@ export class Conductor {
     }
 
     // 2. Musical Event Extraction (Probabilistic with Dynamic Threshold)
-    const kick = this.detectKick(features, time);
-    const snare = this.detectSnare(features, time);
-    const hat = this.detectHat(features, time);
+    const kickTrigger = this.detectKick(features, time);
+    const snareTrigger = this.detectSnare(features, time);
+    const hatTrigger = this.detectHat(features, time);
     const bass = features.low;
 
-    this.smoothedKick += (kick - this.smoothedKick) * 0.25;
-    this.smoothedSnare += (snare - this.smoothedSnare) * 0.25;
-    this.smoothedHat += (hat - this.smoothedHat) * 0.25;
+    // Raw pulses (fast decay for punch)
+    this.rawKick = Math.max(this.rawKick * 0.8, kickTrigger);
+    this.rawSnare = Math.max(this.rawSnare * 0.8, snareTrigger);
+    this.rawHat = Math.max(this.rawHat * 0.8, hatTrigger);
+    this.rawBass = Math.max(this.rawBass * 0.8, bass);
+
+    // Smoothed envelopes (slow decay for drift)
+    this.smoothedKick += (this.rawKick - this.smoothedKick) * 0.25;
+    this.smoothedSnare += (this.rawSnare - this.smoothedSnare) * 0.25;
+    this.smoothedHat += (this.rawHat - this.smoothedHat) * 0.25;
     this.smoothedBass += (bass - this.smoothedBass) * 0.15;
 
+    let beatAccent = 0;
+
     // 3. Timing & Beat Tracking (PLL-like sync)
-    if (kick > 0.8 && time - this.lastKickTime > 0.3) {
+    if (kickTrigger > 0.8 && time - this.lastKickTime > 0.3) {
       const interval = time - this.lastKickTime;
       if (Math.abs(interval - this.beatInterval) < 0.15 || Math.abs(interval - this.beatInterval * 2) < 0.15) {
         this.confidence.groove = Math.min(1, this.confidence.groove + 0.15);
@@ -60,6 +76,11 @@ export class Conductor {
       this.lastBeatTime = time;
       this.beatCount = (this.beatCount + 1) % 4;
       if (this.beatCount === 0) this.barCount = (this.barCount + 1) % 4;
+      
+      this.absoluteBeatCount++;
+      if (this.absoluteBeatCount % 16 === 0) beatAccent = 3;
+      else if (this.absoluteBeatCount % 8 === 0) beatAccent = 2;
+      else if (this.absoluteBeatCount % 4 === 0) beatAccent = 1;
     }
 
     const beatPhase = Math.min(1, (time - this.lastBeatTime) / this.beatInterval);
@@ -82,11 +103,20 @@ export class Conductor {
     return {
       state: this.state,
       events: {
-        kick: this.smoothedKick,
-        snare: this.smoothedSnare,
-        hat: this.smoothedHat,
-        bass: this.smoothedBass,
+        rawKick: this.rawKick,
+        rawSnare: this.rawSnare,
+        rawHat: this.rawHat,
+        rawBass: this.rawBass,
+        smoothedKick: this.smoothedKick,
+        smoothedSnare: this.smoothedSnare,
+        smoothedHat: this.smoothedHat,
+        smoothedBass: this.smoothedBass,
+        kick: this.smoothedKick, // Legacy fallback
+        snare: this.smoothedSnare, // Legacy fallback
+        hat: this.smoothedHat, // Legacy fallback
+        bass: this.smoothedBass, // Legacy fallback
         isPhraseBoundary,
+        beatAccent,
         intensity: features.vol * (1 + this.confidence.build * 0.6)
       },
       features,

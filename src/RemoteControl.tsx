@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Upload, Shuffle, Zap, Settings2, Activity, Dices, X } from 'lucide-react';
+import { Upload, Shuffle, Zap, Settings2, Activity, Dices, X, RefreshCw } from 'lucide-react';
+import { ControlState } from './types';
 
 const ToggleSwitch = ({ label, checked, onChange }: { label: string, checked: boolean, onChange: (checked: boolean) => void }) => (
   <label 
@@ -22,9 +23,10 @@ const ToggleSwitch = ({ label, checked, onChange }: { label: string, checked: bo
 
 export const RemoteControl = ({ roomId }: { roomId: string }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [state, setState] = useState<any>({});
+  const [state, setState] = useState<ControlState | null>(null);
   const [uploading, setUploading] = useState(false);
   const [connectionState, setConnectionState] = useState<'CONNECTING' | 'CONNECTED' | 'DISCONNECTED'>('CONNECTING');
+  const [livePage, setLivePage] = useState<'settings' | 'performance'>('settings');
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showFaqModal, setShowFaqModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
@@ -56,7 +58,7 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
       s.emit('join-room', roomId, 'remote');
     });
 
-    s.on('state-update', (newState) => {
+    s.on('state-update', (newState: ControlState) => {
       setState(newState);
     });
 
@@ -67,13 +69,22 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
     if (socket) {
       socket.emit('send-command', roomId, { action, value });
       // Optimistic update for sliders and toggles
-      if (value !== undefined) {
+      if (value !== undefined && state) {
         let stateKey = action;
         if (action === 'speed') stateKey = 'motionAmount';
         if (action === 'intensity') stateKey = 'globalEffects';
         if (action === 'complexity') stateKey = 'eventDensity';
         if (action === 'glitch') stateKey = 'flickerAmount';
-        setState((prev: any) => ({ ...prev, [stateKey]: value }));
+        
+        if (['motionAmount', 'globalEffects', 'eventDensity', 'flickerAmount', 'transitionSpeed'].includes(stateKey)) {
+          setState((prev: any) => prev ? ({ ...prev, sliders: { ...(prev.sliders || {}), [stateKey]: value } }) : prev);
+        } else if (['enableGlitch', 'enableVHS', 'enableCurvature', 'enableNoise', 'enableFlicker', 'enableRGBSplit', 'enableDriftOffset', 'enableBlobDynamics'].includes(stateKey)) {
+          setState((prev: any) => prev ? ({ ...prev, toggles: { ...(prev.toggles || {}), [stateKey]: value } }) : prev);
+        } else if (stateKey === 'overlaySettings') {
+          setState((prev: any) => prev ? ({ ...prev, overlaySettings: value }) : prev);
+        } else if (['visualMode', 'colorMode'].includes(stateKey)) {
+          setState((prev: any) => prev ? ({ ...prev, [stateKey]: value }) : prev);
+        }
       }
     }
   };
@@ -120,19 +131,50 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
           </p>
         </div>
 
-        <div className="space-y-6 bg-neutral-900 p-5 rounded-2xl border border-neutral-800">
+        <div className={`relative space-y-6 bg-neutral-900 p-5 rounded-2xl border border-neutral-800 ${!state ? 'opacity-50 pointer-events-none' : ''}`}>
           
-          {/* Sliders */}
-          <div className="space-y-5">
+          {!state && (
+            <div className="absolute inset-0 flex items-center justify-center z-10 rounded-2xl">
+              <div className="bg-neutral-900/90 p-4 rounded-xl border border-neutral-800 text-sm font-bold uppercase tracking-widest text-neutral-400 flex items-center gap-3">
+                <Activity size={16} className="animate-pulse" />
+                Waiting for host state...
+              </div>
+            </div>
+          )}
+          
+          {/* PAGE SWITCHER */}
+          <div className="flex bg-neutral-950 rounded-lg p-1 border border-neutral-800 mb-6">
+            <button
+              onClick={() => setLivePage('settings')}
+              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-colors ${
+                livePage === 'settings' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              Settings
+            </button>
+            <button
+              onClick={() => setLivePage('performance')}
+              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-colors ${
+                livePage === 'performance' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              Performance
+            </button>
+          </div>
+
+          {livePage === 'settings' ? (
+            <>
+              {/* Sliders */}
+              <div className="space-y-5">
             <h2 className="text-sm font-bold uppercase tracking-widest text-white mb-4">FX Settings</h2>
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 flex justify-between">
                 <span>Global</span>
-                <span>{state.globalEffects?.toFixed(2) || '0.80'}</span>
+                <span>{state?.sliders?.globalEffects?.toFixed(2) || '0.90'}</span>
               </label>
               <input 
                 type="range" min="0" max="1" step="0.01" 
-                value={state.globalEffects || 0.8} 
+                value={state?.sliders?.globalEffects ?? 0.9} 
                 onChange={e => sendCommand('intensity', parseFloat(e.target.value))} 
                 className="w-full mt-2 accent-white" 
               />
@@ -141,11 +183,11 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 flex justify-between">
                 <span>Motion Speed</span>
-                <span>{state.motionAmount?.toFixed(2) || '0.50'}</span>
+                <span>{state?.sliders?.motionAmount?.toFixed(2) || '0.60'}</span>
               </label>
               <input 
                 type="range" min="0" max="1" step="0.01" 
-                value={state.motionAmount || 0.5} 
+                value={state?.sliders?.motionAmount ?? 0.6} 
                 onChange={e => sendCommand('speed', parseFloat(e.target.value))} 
                 className="w-full mt-2 accent-white" 
               />
@@ -154,11 +196,11 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 flex justify-between">
                 <span>Event Density</span>
-                <span>{state.eventDensity?.toFixed(2) || '0.50'}</span>
+                <span>{state?.sliders?.eventDensity?.toFixed(2) || '0.70'}</span>
               </label>
               <input 
                 type="range" min="0" max="1" step="0.01" 
-                value={state.eventDensity || 0.5} 
+                value={state?.sliders?.eventDensity ?? 0.7} 
                 onChange={e => sendCommand('complexity', parseFloat(e.target.value))} 
                 className="w-full mt-2 accent-white" 
               />
@@ -167,11 +209,11 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 flex justify-between">
                 <span>Transition Speed</span>
-                <span>{state.transitionSpeed?.toFixed(2) || '0.50'}</span>
+                <span>{state?.sliders?.transitionSpeed?.toFixed(2) || '0.50'}</span>
               </label>
               <input 
                 type="range" min="0" max="1" step="0.01" 
-                value={state.transitionSpeed || 0.5} 
+                value={state?.sliders?.transitionSpeed ?? 0.5} 
                 onChange={e => sendCommand('transitionSpeed', parseFloat(e.target.value))} 
                 className="w-full mt-2 accent-white" 
               />
@@ -180,11 +222,11 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 flex justify-between">
                 <span>Flicker Amount</span>
-                <span>{state.flickerAmount?.toFixed(2) || '0.50'}</span>
+                <span>{state?.sliders?.flickerAmount?.toFixed(2) || '0.50'}</span>
               </label>
               <input 
                 type="range" min="0" max="1" step="0.01" 
-                value={state.flickerAmount || 0.5} 
+                value={state?.sliders?.flickerAmount ?? 0.5} 
                 onChange={e => sendCommand('glitch', parseFloat(e.target.value))} 
                 className="w-full mt-2 accent-white" 
               />
@@ -193,18 +235,75 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
 
           {/* Toggles Grid */}
           <div className="grid grid-cols-2 gap-2 pt-4 border-t border-neutral-800">
-            <ToggleSwitch label="Glitch" checked={state.enableGlitch ?? true} onChange={v => sendCommand('enableGlitch', v)} />
-            <ToggleSwitch label="VHS" checked={state.enableVHS ?? true} onChange={v => sendCommand('enableVHS', v)} />
-            <ToggleSwitch label="Curve" checked={state.enableCurvature ?? true} onChange={v => sendCommand('enableCurvature', v)} />
-            <ToggleSwitch label="Noise" checked={state.enableNoise ?? true} onChange={v => sendCommand('enableNoise', v)} />
-            <ToggleSwitch label="Flicker" checked={state.enableFlicker ?? true} onChange={v => sendCommand('enableFlicker', v)} />
-            <ToggleSwitch label="RGB" checked={state.enableRGBSplit ?? true} onChange={v => sendCommand('enableRGBSplit', v)} />
-            <ToggleSwitch label="White Transp." checked={state.enableWhiteTransparency ?? false} onChange={v => sendCommand('enableWhiteTransparency', v)} />
-            <ToggleSwitch label="Drift Offset" checked={state.enableDriftOffset ?? false} onChange={v => sendCommand('enableDriftOffset', v)} />
+            <ToggleSwitch label="Glitch" checked={state?.toggles?.enableGlitch ?? false} onChange={v => sendCommand('enableGlitch', v)} />
+            <ToggleSwitch label="VHS" checked={state?.toggles?.enableVHS ?? false} onChange={v => sendCommand('enableVHS', v)} />
+            <ToggleSwitch label="Curve" checked={state?.toggles?.enableCurvature ?? false} onChange={v => sendCommand('enableCurvature', v)} />
+            <ToggleSwitch label="Noise" checked={state?.toggles?.enableNoise ?? false} onChange={v => sendCommand('enableNoise', v)} />
+            <ToggleSwitch label="Flicker" checked={state?.toggles?.enableFlicker ?? false} onChange={v => sendCommand('enableFlicker', v)} />
+            <ToggleSwitch label="RGB" checked={state?.toggles?.enableRGBSplit ?? false} onChange={v => sendCommand('enableRGBSplit', v)} />
+            <ToggleSwitch label="Drift Offset" checked={state?.toggles?.enableDriftOffset ?? false} onChange={v => sendCommand('enableDriftOffset', v)} />
+            {state?.visualMode === 'lava-space' && (
+              <ToggleSwitch label="Blob Dynamics" checked={state?.toggles?.enableBlobDynamics ?? false} onChange={v => sendCommand('enableBlobDynamics', v)} />
+            )}
           </div>
 
+          {/* Overlay Settings */}
+          {state?.visualMode !== 'represent' && (
+            <div className="pt-4 border-t border-neutral-800 space-y-4">
+              <h2 className="text-sm font-bold uppercase tracking-widest text-white mb-2">Overlay Settings</h2>
+              
+              <ToggleSwitch 
+                label="Enable Overlay" 
+                checked={state?.visualMode ? (state?.overlaySettings?.[state.visualMode]?.enabled ?? true) : true} 
+                onChange={v => state?.visualMode && sendCommand('overlaySettings', { ...state.overlaySettings, [state.visualMode]: { ...state.overlaySettings?.[state.visualMode], enabled: v } })} 
+              />
+              
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-neutral-400 uppercase">Opacity</span>
+                  <span className="text-xs text-neutral-500">{state?.visualMode ? (state?.overlaySettings?.[state.visualMode]?.opacity ?? 100) : 100}%</span>
+                </div>
+                <input 
+                  type="range" min="0" max="100" step="1" 
+                  value={state?.visualMode ? (state?.overlaySettings?.[state.visualMode]?.opacity ?? 100) : 100} 
+                  onChange={e => state?.visualMode && sendCommand('overlaySettings', { ...state.overlaySettings, [state.visualMode]: { ...state.overlaySettings?.[state.visualMode], opacity: parseInt(e.target.value) } })} 
+                  className="w-full mt-2 accent-white" 
+                />
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-neutral-800/50">
+                <div className="flex bg-neutral-900 rounded-lg p-1 border border-neutral-700">
+                  <button
+                    onClick={() => state?.visualMode && sendCommand('overlaySettings', { ...state.overlaySettings, [state.visualMode]: { ...state.overlaySettings?.[state.visualMode], mode: 'black' } })}
+                    className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-md transition-colors ${
+                      (state?.visualMode ? (state?.overlaySettings?.[state.visualMode]?.mode ?? 'normal') : 'normal') === 'black' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                    }`}
+                  >
+                    Black
+                  </button>
+                  <button
+                    onClick={() => state?.visualMode && sendCommand('overlaySettings', { ...state.overlaySettings, [state.visualMode]: { ...state.overlaySettings?.[state.visualMode], mode: 'white' } })}
+                    className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-md transition-colors ${
+                      (state?.visualMode ? (state?.overlaySettings?.[state.visualMode]?.mode ?? 'normal') : 'normal') === 'white' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                    }`}
+                  >
+                    White
+                  </button>
+                  <button
+                    onClick={() => state?.visualMode && sendCommand('overlaySettings', { ...state.overlaySettings, [state.visualMode]: { ...state.overlaySettings?.[state.visualMode], mode: 'normal' } })}
+                    className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-md transition-colors ${
+                      (state?.visualMode ? (state?.overlaySettings?.[state.visualMode]?.mode ?? 'normal') : 'normal') === 'normal' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                    }`}
+                  >
+                    Normal
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
-          <div className="grid grid-cols-2 gap-3 pt-4 border-t border-neutral-800">
+          <div className="grid grid-cols-3 gap-3 pt-4 border-t border-neutral-800">
             <button 
               onClick={() => sendCommand('shuffle')} 
               className="flex flex-col items-center justify-center gap-2 p-4 bg-neutral-800 hover:bg-neutral-700 rounded-xl transition-colors"
@@ -219,18 +318,90 @@ export const RemoteControl = ({ roomId }: { roomId: string }) => {
               <Dices size={20} />
               <span className="text-[10px] uppercase tracking-wider font-bold">Random FX</span>
             </button>
+            <button 
+              onClick={() => sendCommand('reset')} 
+              className="flex flex-col items-center justify-center gap-2 p-4 bg-neutral-800 hover:bg-neutral-700 rounded-xl transition-colors"
+            >
+              <RefreshCw size={20} />
+              <span className="text-[10px] uppercase tracking-wider font-bold">Reset</span>
+            </button>
           </div>
 
-          {/* Upload */}
-          <div className="pt-4 border-t border-neutral-800">
-            <label className={`flex flex-col items-center justify-center w-full p-6 border-2 border-dashed rounded-xl transition-colors cursor-pointer ${uploading ? 'border-emerald-500 text-emerald-500' : 'border-neutral-700 hover:border-neutral-500 text-neutral-400 hover:text-white'}`}>
-              <Upload size={24} className="mb-2" />
-              <span className="text-xs font-bold uppercase tracking-wider">
-                {uploading ? 'Sending...' : 'Send Images to TV'}
-              </span>
-              <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} disabled={uploading} />
-            </label>
-          </div>
+              {/* Upload */}
+              <div className="pt-4 border-t border-neutral-800">
+                <label className={`flex flex-col items-center justify-center w-full p-6 border-2 border-dashed rounded-xl transition-colors cursor-pointer ${uploading ? 'border-emerald-500 text-emerald-500' : 'border-neutral-700 hover:border-neutral-500 text-neutral-400 hover:text-white'}`}>
+                  <Upload size={24} className="mb-2" />
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    {uploading ? 'Sending...' : 'Send Images to TV'}
+                  </span>
+                  <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} disabled={uploading} />
+                </label>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col gap-8 pt-2">
+              <div className="space-y-6">
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-neutral-400 uppercase tracking-widest leading-none">Intensity</span>
+                    <span className="text-sm text-neutral-600">{((state?.sliders?.globalEffects ?? 0) * 100)?.toFixed(0) || '90'}%</span>
+                  </div>
+                  <input 
+                    type="range" min="0" max="1" step="0.01"
+                    value={state?.sliders?.globalEffects ?? 0.9}
+                    onChange={(e) => sendCommand('intensity', parseFloat(e.target.value))}
+                    className="w-full h-4 accent-white bg-neutral-800 appearance-none outline-none rounded-full"
+                  />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-bold text-neutral-400 uppercase tracking-widest leading-none">Motion</span>
+                    <span className="text-sm text-neutral-600">{((state?.sliders?.motionAmount ?? 0) * 100)?.toFixed(0) || '60'}%</span>
+                  </div>
+                  <input 
+                    type="range" min="0" max="1" step="0.01"
+                    value={state?.sliders?.motionAmount ?? 0.6}
+                    onChange={(e) => sendCommand('speed', parseFloat(e.target.value))}
+                    className="w-full h-4 accent-white bg-neutral-800 appearance-none outline-none rounded-full"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onPointerDown={() => sendCommand('macro', { name: 'buildUp', active: true })}
+                  onPointerUp={() => sendCommand('macro', { name: 'buildUp', active: false })}
+                  onPointerLeave={() => sendCommand('macro', { name: 'buildUp', active: false })}
+                  className="h-24 bg-neutral-900 hover:bg-neutral-800 active:bg-white active:text-black border border-neutral-800 rounded-xl font-bold uppercase tracking-widest text-sm transition-all duration-150 select-none"
+                >
+                  Build Up
+                </button>
+                <button
+                  onPointerDown={() => sendCommand('macro', { name: 'tension', active: true })}
+                  onPointerUp={() => sendCommand('macro', { name: 'tension', active: false })}
+                  onPointerLeave={() => sendCommand('macro', { name: 'tension', active: false })}
+                  className="h-24 bg-neutral-900 hover:bg-neutral-800 active:bg-white active:text-black border border-neutral-800 rounded-xl font-bold uppercase tracking-widest text-sm transition-all duration-150 select-none"
+                >
+                  Tension
+                </button>
+                <button
+                  onPointerDown={() => sendCommand('macro', { name: 'drop', active: true })}
+                  onPointerUp={() => sendCommand('macro', { name: 'drop', active: false })}
+                  onPointerLeave={() => sendCommand('macro', { name: 'drop', active: false })}
+                  className="h-24 bg-neutral-900 hover:bg-neutral-800 active:bg-white active:text-black border border-neutral-800 rounded-xl font-bold uppercase tracking-widest text-sm transition-all duration-150 select-none"
+                >
+                  Drop
+                </button>
+                <button
+                  onPointerDown={() => sendCommand('macro', { name: 'extraBounce', active: true })}
+                  onPointerUp={() => sendCommand('macro', { name: 'extraBounce', active: false })}
+                  onPointerLeave={() => sendCommand('macro', { name: 'extraBounce', active: false })}
+                  className="h-24 bg-neutral-900 hover:bg-neutral-800 active:bg-white active:text-black border border-neutral-800 rounded-xl font-bold uppercase tracking-widest text-sm transition-all duration-150 select-none"
+                >
+                  Extra Bounce
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
