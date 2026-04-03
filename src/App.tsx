@@ -1245,47 +1245,47 @@ class VisualEngine {
 
         if (u_visual_mode == 0) {
             if (u_enable_glitch > 0.5 && u_glitch_intensity > 0.0) {
-                float active_intensity = u_glitch_intensity * u_flicker_amount * 2.0;
+                float active_intensity = u_glitch_intensity * (0.5 + u_flicker_amount * 2.5);
                 if (u_glitch_type == 1) {
                     // Dark Flicker Burst (compression feel)
                     flickerBurst = -step(0.5, fract(u_glitch_time * 15.0)) * active_intensity * 0.5;
                 } else if (u_glitch_type == 2) {
                     // Horizontal Tear
-                    float tearBand = step(0.95, sin(uv.y * 50.0 + u_glitch_time * 20.0));
-                    tear = (rand(vec2(uv.y * 20.0, u_time)) - 0.5) * 0.1 * active_intensity * tearBand;
-                    rgbSplit += 0.05 * active_intensity * tearBand;
+                    float tearBand = step(0.9, sin(uv.y * 50.0 + u_glitch_time * 20.0));
+                    tear = (rand(vec2(uv.y * 20.0, u_time)) - 0.5) * 0.3 * active_intensity * tearBand;
+                    rgbSplit += 0.15 * active_intensity * tearBand;
                 } else if (u_glitch_type == 3) {
                     // Tracking Roll
-                    roll = fract(u_glitch_time * 3.0) * active_intensity * 0.1;
+                    roll = fract(u_glitch_time * 5.0) * active_intensity * 0.2;
                     uv.y = fract(uv.y + roll);
                 } else if (u_glitch_type == 4) {
                     // Noise Burst
-                    noiseBurst = active_intensity * 0.5;
+                    noiseBurst = active_intensity * 0.8;
                 } else if (u_glitch_type == 5) {
                     // Subtle Pixel Sort (simulated)
-                    float sortBand = step(0.9, sin(uv.y * 15.0 + u_time * 5.0));
-                    uv.x -= sortBand * (rand(vec2(uv.y, 0.0)) * 0.1 * active_intensity);
+                    float sortBand = step(0.8, sin(uv.y * 15.0 + u_time * 5.0));
+                    uv.x -= sortBand * (rand(vec2(uv.y, 0.0)) * 0.2 * active_intensity);
                 } else if (u_glitch_type == 6) {
                     // RGB Separation Burst
-                    rgbSplit += 0.1 * active_intensity;
-                    uv.x += (rand(vec2(u_time, uv.y)) - 0.5) * 0.02 * active_intensity;
+                    rgbSplit += 0.3 * active_intensity;
+                    uv.x += (rand(vec2(u_time, uv.y)) - 0.5) * 0.05 * active_intensity;
                 } else if (u_glitch_type == 7) {
                     // Distortion Wave
-                    float wave = sin(uv.y * 10.0 + u_glitch_time * 10.0) * 0.05 * active_intensity;
+                    float wave = sin(uv.y * 10.0 + u_glitch_time * 10.0) * 0.15 * active_intensity;
                     uv.x += wave;
-                    rgbSplit += abs(wave) * 0.5;
+                    rgbSplit += abs(wave) * 0.8;
                 } else if (u_glitch_type == 8) {
                     // Stutter / Jitter
-                    uv.x += (step(0.5, rand(vec2(u_time, 1.0))) - 0.5) * 0.05 * active_intensity;
-                    uv.y += (step(0.5, rand(vec2(1.0, u_time))) - 0.5) * 0.05 * active_intensity;
+                    uv.x += (step(0.5, rand(vec2(u_time, 1.0))) - 0.5) * 0.15 * active_intensity;
+                    uv.y += (step(0.5, rand(vec2(1.0, u_time))) - 0.5) * 0.15 * active_intensity;
                 }
             }
             
             // Clap adds quick horizontal crackle/tear (Accent)
             if (u_enable_glitch > 0.5 && u_clap > 0.1) {
-                float clapTearBand = step(0.95, sin(uv.y * 60.0 + u_time * 30.0));
-                tear += (rand(vec2(uv.y * 10.0, u_time)) - 0.5) * 0.02 * u_clap * effect_mult * u_flicker_amount * clapTearBand;
-                rgbSplit += 0.01 * u_clap * u_flicker_amount * clapTearBand;
+                float clapTearBand = step(0.9, sin(uv.y * 60.0 + u_time * 30.0));
+                tear += (rand(vec2(uv.y * 10.0, u_time)) - 0.5) * 0.08 * u_clap * effect_mult * u_flicker_amount * clapTearBand;
+                rgbSplit += 0.05 * u_clap * u_flicker_amount * clapTearBand;
             }
         }
 
@@ -1317,8 +1317,8 @@ class VisualEngine {
         
         vec2 bg_offset = vec2(0.0);
         if (u_visual_mode == 0) {
-            bg_offset.y += u_represent_pulse * 0.02; // Subtle background bounce
-            bg_offset.x -= u_represent_wave * 0.01;
+            bg_offset.y += u_represent_pulse * 0.1; // Aggressive background bounce
+            bg_offset.x -= u_represent_wave * 0.05;
         }
         
         vec2 uv_bg_r = getCoverUv(uv + vec2(shift, 0.0) + bg_offset, u_resolution, u_res_bg);
@@ -1406,12 +1406,15 @@ class VisualEngine {
         float current_zoom = u_zoom;
         if (u_visual_mode == 0) {
             // Signal Glitch: Add post-drop bounce and recoil
-            current_zoom += u_represent_pulse * 0.25; // Strong forward bounce
-            current_zoom -= u_represent_wave * 0.15;  // Elastic recoil
+            current_zoom += u_represent_pulse * 0.6; // Strong forward bounce
+            current_zoom -= u_represent_wave * 0.4;  // Elastic recoil
             
             // Add physical push to offset
-            poster_offset.y += u_represent_pulse * 0.08;
-            poster_offset.x += (rand(vec2(u_time, 1.0)) - 0.5) * u_represent_wave * 0.05;
+            poster_offset.y += u_represent_pulse * 0.2;
+            poster_offset.x += (rand(vec2(u_time, 1.0)) - 0.5) * u_represent_wave * 0.15;
+            
+            // Aggressive shake
+            poster_offset += vec2(rand(vec2(u_time, 2.0)) - 0.5, rand(vec2(u_time, 3.0)) - 0.5) * (u_represent_pulse + u_represent_wave) * 0.25;
         }
         
         vec2 uv_poster = getContainUv(uv + poster_offset + u_poster_crop, u_resolution, u_res_poster);
@@ -1425,8 +1428,8 @@ class VisualEngine {
             
             // Add RGB split recoil for Signal Glitch
             if (u_visual_mode == 0 && u_enable_rgb_split > 0.5) {
-                uv_poster_r.x += u_represent_wave * 0.02;
-                uv_poster_b.x -= u_represent_wave * 0.02;
+                uv_poster_r.x += u_represent_wave * 0.1;
+                uv_poster_b.x -= u_represent_wave * 0.1;
             }
             
             col_poster.r = texture2D(u_tex_poster, uv_poster_r).r;
@@ -1456,8 +1459,8 @@ class VisualEngine {
         float overlay_zoom = current_zoom;
         if (u_visual_mode == 0) {
             // Overlay reacts differently to bounce (more snappy, less heavy)
-            overlay_offset.y -= u_represent_pulse * 0.04;
-            overlay_zoom += u_represent_wave * 0.2; // Recoil expands overlay
+            overlay_offset.y -= u_represent_pulse * 0.15;
+            overlay_zoom += u_represent_wave * 0.5; // Recoil expands overlay
         }
         
         vec2 uv_overlay = getContainUv(uv + overlay_offset + overlay_jump, u_resolution, u_res_overlay);
@@ -1466,7 +1469,8 @@ class VisualEngine {
         
         // Glitch distortion on overlay
         if (u_enable_glitch > 0.5 && u_glitch_intensity > 0.0) {
-            uv_overlay.x += (rand(vec2(uv_overlay.y * 10.0, u_time)) - 0.5) * 0.05 * u_glitch_intensity;
+            uv_overlay.x += (rand(vec2(uv_overlay.y * 10.0, u_time)) - 0.5) * 0.15 * u_glitch_intensity;
+            if (u_visual_mode == 0) uv_overlay.y += (rand(vec2(u_time, uv_overlay.x * 10.0)) - 0.5) * 0.1 * u_glitch_intensity;
         }
         
         vec4 col_overlay = vec4(0.0);
@@ -1495,15 +1499,16 @@ class VisualEngine {
         
         if (u_visual_mode == 0) {
             // Logo bounce (very snappy, sharp)
-            logo_jump.y -= u_represent_pulse * 0.06;
-            logo_jump.x += u_represent_wave * 0.03;
+            logo_jump.y -= u_represent_pulse * 0.2;
+            logo_jump.x += u_represent_wave * 0.1;
         }
         
         vec2 uv_logo = getContainUv(uv + logo_jump, u_resolution, u_res_logo);
         
         // Glitch distortion on logo
         if (u_enable_glitch > 0.5 && u_glitch_intensity > 0.0) {
-            uv_logo.x += (rand(vec2(uv_logo.y * 20.0, u_time)) - 0.5) * 0.1 * u_glitch_intensity;
+            uv_logo.x += (rand(vec2(uv_logo.y * 20.0, u_time)) - 0.5) * 0.2 * u_glitch_intensity;
+            if (u_visual_mode == 0) uv_logo.y += (rand(vec2(u_time, uv_logo.x * 20.0)) - 0.5) * 0.15 * u_glitch_intensity;
         }
         
         float logo_age = u_time - u_last_overlay_change;
@@ -1515,7 +1520,7 @@ class VisualEngine {
             
             if (u_visual_mode == 0) {
                 // Signal Glitch: Sharp scale bounce
-                float logoPulse = 1.0 + u_represent_pulse * 0.1 - u_represent_wave * 0.05;
+                float logoPulse = 1.0 + u_represent_pulse * 0.4 - u_represent_wave * 0.2;
                 vec2 pulsedUv = (uv_logo - 0.5) / logoPulse + 0.5;
                 if (pulsedUv.x >= 0.0 && pulsedUv.x <= 1.0 && pulsedUv.y >= 0.0 && pulsedUv.y <= 1.0) {
                     col_logo = texture2D(u_tex_logo, pulsedUv);
@@ -2372,7 +2377,7 @@ class VisualEngine {
 
   private updateSignalGlitch(context: MusicalContext) {
     if (!context) return;
-    const { events, state, energyTrend, time } = context;
+    const { events, state, energyTrend, time, features } = context;
     
     // Post-drop energy window
     if ((state === MusicalState.DROP_RELEASE && context.confidence.drop > 0.8 && this.conductor.shouldTrigger('post_drop_spike', 1.0, 4.0, 2.0)) || this.macroDrop) {
@@ -2385,40 +2390,45 @@ class VisualEngine {
     const dropMultiplier = isDrop ? 2.0 : 1.0 + this.postDropEnergy * 1.5;
     
     // Add kick impact to bounce (overshoot and settle)
-    if ((events.rawKick > 0.4 && this.conductor.shouldTrigger('signal_bounce', 1.0, 0.05, 0.05)) || this.macroExtraBounce) {
-        this.signalGlitchBounce += (events.rawKick || 0.8) * 0.9 * dropMultiplier;
+    if ((events.rawKick > 0.3 && this.conductor.shouldTrigger('signal_bounce', 1.0, 0.05, 0.05)) || this.macroExtraBounce) {
+        this.signalGlitchBounce += (events.rawKick || 0.8) * 1.5 * dropMultiplier;
     }
     
     // Add snare/clap impact to recoil
-    if ((events.rawSnare > 0.3 && this.conductor.shouldTrigger('signal_recoil', 1.0, 0.05, 0.05)) || this.macroExtraBounce) {
-        this.signalGlitchRecoil += (events.rawSnare || 0.8) * 1.1 * dropMultiplier;
+    if ((events.rawSnare > 0.2 && this.conductor.shouldTrigger('signal_recoil', 1.0, 0.05, 0.05)) || this.macroExtraBounce) {
+        this.signalGlitchRecoil += (events.rawSnare || 0.8) * 1.8 * dropMultiplier;
     }
     
+    // Continuous vibration/shake based on energy
+    const vibration = (energyTrend * 0.5 + features.rawVol * 0.5) * this.options.globalEffects;
+    this.signalGlitchBounce += (Math.random() - 0.5) * vibration * 0.4;
+    this.signalGlitchRecoil += (Math.random() - 0.5) * vibration * 0.4;
+
     // Elastic settling (spring-like decay)
-    this.signalGlitchBounce += (0 - this.signalGlitchBounce) * 0.2;
-    this.signalGlitchRecoil += (0 - this.signalGlitchRecoil) * 0.25;
+    this.signalGlitchBounce += (0 - this.signalGlitchBounce) * 0.15;
+    this.signalGlitchRecoil += (0 - this.signalGlitchRecoil) * 0.2;
     
-    this.signalGlitchBounce *= 0.82;
-    this.signalGlitchRecoil *= 0.78;
+    this.signalGlitchBounce *= 0.95;
+    this.signalGlitchRecoil *= 0.92;
 
     // State-aware glitching
-    let triggerChance = 0.95 + this.postDropEnergy * 0.1; // Increased base chance
-    if (state === MusicalState.BUILDING) triggerChance = 0.8;
-    if (state === MusicalState.PRE_DROP_TENSION) triggerChance = 0.6;
+    let triggerChance = 0.7; // 30% base chance
+    if (state === MusicalState.BUILDING) triggerChance = 0.5;
+    if (state === MusicalState.PRE_DROP_TENSION) triggerChance = 0.3;
     
-    let triggerThreshold = 0.6 - this.postDropEnergy * 0.3; // Lowered threshold for more action
-    if (events.beatAccent === 3) triggerThreshold = 0.2; // 16th beat accent
-    else if (events.beatAccent === 2) triggerThreshold = 0.3; // 8th beat accent
-    else if (events.beatAccent === 1) triggerThreshold = 0.4; // 4th beat accent
+    let triggerThreshold = 0.2 - this.postDropEnergy * 0.1; // Lowered threshold for more action
+    if (events.beatAccent === 3) triggerThreshold = 0.05; // 16th beat accent
+    else if (events.beatAccent === 2) triggerThreshold = 0.1; // 8th beat accent
+    else if (events.beatAccent === 1) triggerThreshold = 0.15; // 4th beat accent
 
     const densityMult = Math.max(0.05, 1.0 - this.options.eventDensity); // More aggressive density
-    if (events.rawKick > triggerThreshold && this.conductor.shouldTrigger('glitch', triggerChance, 0.4 * densityMult, 0.3 * densityMult)) {
-      this.glitchIntensity = 1.0 + Math.random() * 0.8 + this.postDropEnergy * 0.5; // Increased intensity
-      if (events.beatAccent >= 2) this.glitchIntensity += 0.5;
+    if (features.rawVol > triggerThreshold && this.conductor.shouldTrigger('glitch', triggerChance, 0.1 * densityMult, 0.1 * densityMult)) {
+      this.glitchIntensity = 2.0 + Math.random() * 1.5 + this.postDropEnergy * 1.0; // Massive intensity
+      if (events.beatAccent >= 2) this.glitchIntensity += 1.0;
       this.glitchType = Math.floor(Math.random() * 9); // Use all 9 glitch types
       if (state === MusicalState.PRE_DROP_TENSION) this.glitchType = 7; // More aggressive glitch
       if (events.beatAccent === 3) this.glitchType = 6; // Special glitch on 16th
-      this.glitchDuration = 0.15 + Math.random() * 0.3;
+      this.glitchDuration = 0.2 + Math.random() * 0.4;
       this.glitchTime = time;
     }
     
