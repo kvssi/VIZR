@@ -67,26 +67,32 @@ export interface MaterialInstructions {
   impact: number;
 }
 
+export type VisualMode = 'signal-glitch' | 'lava-space' | 'represent' | 'contour' | 'kaleidoscope';
+
+export interface ToggleState {
+  enableGlitch: boolean;
+  enableVHS: boolean;
+  enableCurvature: boolean;
+  enableNoise: boolean;
+  enableFlicker: boolean;
+  enableRGBSplit: boolean;
+  enableDriftOffset: boolean;
+  enableBlobDynamics: boolean;
+}
+
+export interface SliderState {
+  globalEffects: number;
+  flickerAmount: number;
+  motionAmount: number;
+  eventDensity: number;
+  transitionSpeed: number;
+}
+
 export interface ControlState {
-  visualMode: 'signal-glitch' | 'lava-space' | 'represent' | 'contour' | 'kaleidoscope';
+  visualMode: VisualMode;
   colorMode: string;
-  toggles: {
-    enableGlitch: boolean;
-    enableVHS: boolean;
-    enableCurvature: boolean;
-    enableNoise: boolean;
-    enableFlicker: boolean;
-    enableRGBSplit: boolean;
-    enableDriftOffset: boolean;
-    enableBlobDynamics: boolean;
-  };
-  sliders: {
-    globalEffects: number;
-    flickerAmount: number;
-    motionAmount: number;
-    eventDensity: number;
-    transitionSpeed: number;
-  };
+  toggles: Record<VisualMode, ToggleState>;
+  sliders: SliderState;
   overlaySettings: Record<string, {
     enabled: boolean;
     mode: 'normal' | 'black' | 'white';
@@ -94,26 +100,36 @@ export interface ControlState {
   }>;
 }
 
+export const defaultToggleState: ToggleState = {
+  enableGlitch: false,
+  enableVHS: false,
+  enableCurvature: false,
+  enableNoise: false,
+  enableFlicker: false,
+  enableRGBSplit: false,
+  enableDriftOffset: false,
+  enableBlobDynamics: false,
+};
+
+export const defaultSliderState: SliderState = {
+  globalEffects: 0.5,
+  flickerAmount: 0.5,
+  motionAmount: 0.5,
+  eventDensity: 0.5,
+  transitionSpeed: 0.5,
+};
+
 export const defaultControlState: ControlState = {
   visualMode: 'signal-glitch',
   colorMode: 'mostly-mono',
   toggles: {
-    enableGlitch: false,
-    enableVHS: false,
-    enableCurvature: false,
-    enableNoise: false,
-    enableFlicker: false,
-    enableRGBSplit: false,
-    enableDriftOffset: false,
-    enableBlobDynamics: false,
+    'signal-glitch': { ...defaultToggleState },
+    'lava-space': { ...defaultToggleState },
+    'represent': { ...defaultToggleState },
+    'contour': { ...defaultToggleState },
+    'kaleidoscope': { ...defaultToggleState },
   },
-  sliders: {
-    globalEffects: 0.5,
-    flickerAmount: 0.5,
-    motionAmount: 0.5,
-    eventDensity: 0.5,
-    transitionSpeed: 0.5,
-  },
+  sliders: { ...defaultSliderState },
   overlaySettings: {
     'signal-glitch': { enabled: false, mode: 'normal', opacity: 50 },
     'lava-space': { enabled: false, mode: 'normal', opacity: 50 },

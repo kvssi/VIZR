@@ -1,0 +1,12 @@
+.gcloudignore
+.git
+.vscode
+node_modules
+tmp
+analysis.txt
+build.log
+diff.txt
+stitch_export.html
+ts_errors.txt
+ts_errors2.txt
+ts_err_full.txt

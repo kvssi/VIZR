@@ -1,9 +1,14 @@
 node_modules/
 build/
-# dist/ is committed to ship pre-built assets to Cloud Run
-
+dist/
 coverage/
 .DS_Store
 *.log
 .env*
 !.env.example
+
+# Analysis and logs
+*.txt
+stitch_export.html
+.vscode/
+tmp/

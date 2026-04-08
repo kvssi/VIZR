@@ -34,7 +34,7 @@ async function startServer() {
     maxHttpBufferSize: 1e8
     // 100MB for image uploads
   });
-  const PORT = Number(process.env.PORT) || 8080;
+  const PORT = Number(process.env.PORT) || 3e3;
   io.on("connection", (socket) => {
     let currentRoom = null;
     let currentRole = null;
@@ -83,7 +83,7 @@ async function startServer() {
     });
   }
   server.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
   });
 }
 startServer();
