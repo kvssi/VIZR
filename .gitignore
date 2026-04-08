@@ -1,6 +1,7 @@
 node_modules/
 build/
-dist/
+# dist/ is committed to ship pre-built assets to Cloud Run
+
 coverage/
 .DS_Store
 *.log
