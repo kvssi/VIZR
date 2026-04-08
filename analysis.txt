@@ -1,0 +1,98 @@
+
+src\App.tsx:1:import React, { useState, useRef, useEffect } from 'react';
+src\App.tsx:88:  ctx: AudioContext;
+src\App.tsx:118:    this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+src\App.tsx:132:        this.elementSource = this.ctx.createMediaElementSource(this.audioElement);
+src\App.tsx:147:        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+src\App.tsx:150:        this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+src\App.tsx:152:        if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
+src\App.tsx:155:        this.stream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+src\App.tsx:164:        this.source = this.ctx.createMediaStreamSource(this.stream);
+src\App.tsx:299:      this.source.disconnect();
+src\App.tsx:306:      this.elementSource.disconnect();
+src\App.tsx:309:      this.ctx.close();
+src\App.tsx:497:    this.updateTextures();
+src\App.tsx:505:  textureCache: Map<HTMLImageElement, WebGLTexture> = new Map();
+src\App.tsx:507:  getTexture(img: HTMLImageElement): WebGLTexture {
+src\App.tsx:509:    if (this.textureCache.has(img)) {
+src\App.tsx:510:      return this.textureCache.get(img)!;
+src\App.tsx:512:    const tex = gl.createTexture()!;
+src\App.tsx:513:    gl.bindTexture(gl.TEXTURE_2D, tex);
+src\App.tsx:514:    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+src\App.tsx:515:    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+src\App.tsx:516:    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+src\App.tsx:517:    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+src\App.tsx:518:    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+src\App.tsx:519:    this.textureCache.set(img, tex);
+src\App.tsx:523:  updateTextures(type?: 'bg' | 'poster' | 'overlay' | 'logo' | 'flash') {
+src\App.tsx:524:    // No-op: Textures are now fetched dynamically in render() via getTexture()
+src\App.tsx:821:                logoMask = texture2D(u_tex_logo, uv_logo_test).a * u_layer_visibility.w;
+src\App.tsx:829:            float imgLum = dot(texture2D(u_tex_poster, uv).rgb, vec3(0.299, 0.587, 0.114));
+src\App.tsx:895:            float imgLum = dot(texture2D(u_tex_poster, lowResUv).rgb, vec3(0.299, 0.587, 0.114));
+src\App.tsx:929:            vec4 posterSample = texture2D(u_tex_poster, uv);
+src\App.tsx:941:                float edge = abs(lum - dot(texture2D(u_tex_poster, uv + 0.002).rgb, vec3(0.299, 0.587, 0.114)));
+src\App.tsx:1087:        col_bg.r = texture2D(u_tex_bg, uv_bg_r).r;
+src\App.tsx:1088:        col_bg.g = texture2D(u_tex_bg, uv_bg_g).g;
+src\App.tsx:1089:        col_bg.b = texture2D(u_tex_bg, uv_bg_b).b;
+src\App.tsx:1142:        col_poster_bg += texture2D(u_tex_poster, uv_poster_fill) * 0.2;
+src\App.tsx:1143:        col_poster_bg += texture2D(u_tex_poster, uv_poster_fill + vec2(bSize, 0.0)) * 0.15;
+src\App.tsx:1144:        col_poster_bg += texture2D(u_tex_poster, uv_poster_fill - vec2(bSize, 0.0)) * 0.15;
+src\App.tsx:1145:        col_poster_bg += texture2D(u_tex_poster, uv_poster_fill + vec2(0.0, bSize)) * 0.15;
+src\App.tsx:1146:        col_poster_bg += texture2D(u_tex_poster, uv_poster_fill - vec2(0.0, bSize)) * 0.15;
+src\App.tsx:1147:        col_poster_bg += texture2D(u_tex_poster, uv_poster_fill + vec2(bSize, bSize)) * 0.1;
+src\App.tsx:1148:        col_poster_bg += texture2D(u_tex_poster, uv_poster_fill - vec2(bSize, bSize)) * 0.1;
+src\App.tsx:1193:            col_poster.r = texture2D(u_tex_poster, uv_poster_r).r;
+src\App.tsx:1194:            col_poster.g = texture2D(u_tex_poster, uv_poster).g;
+src\App.tsx:1195:            col_poster.b = texture2D(u_tex_poster, uv_poster_b).b;
+src\App.tsx:1196:            col_poster.a = texture2D(u_tex_poster, uv_poster).a;
+src\App.tsx:1207:        // Overlay (Accents, subtle texture changes)
+src\App.tsx:1237:                col_overlay = texture2D(u_tex_overlay, uv_overlay);
+src\App.tsx:1277:            col_logo = texture2D(u_tex_logo, uv_logo);
+src\App.tsx:1284:                    col_logo = texture2D(u_tex_logo, pulsedUv);
+src\App.tsx:1292:                    col_logo = texture2D(u_tex_logo, pulsedUv);
+src\App.tsx:1313:            col_flash = texture2D(u_tex_flash, uv_flash);
+src\App.tsx:1419:            vec4 k_poster = texture2D(u_tex_poster, polar_uv + 0.5);
+src\App.tsx:1437:                vec4 layer2 = texture2D(u_tex_poster, polar_uv2 + 0.5);
+src\App.tsx:1446:                    vec4 mirrored_overlay = texture2D(u_tex_overlay, overlay_k_uv);
+src\App.tsx:1464:                    vec4 spatial_logo = texture2D(u_tex_logo, uv_logo_spatial);
+src\App.tsx:1540:                col = texture2D(u_tex_poster, uv_poster_struct);
+src\App.tsx:1792:            vec4 fallbackSample = texture2D(u_tex_poster, fallbackUv);
+src\App.tsx:1931:    // Clean up unused textures
+src\App.tsx:1935:    for (const [img, tex] of this.textureCache.entries()) {
+src\App.tsx:1937:        this.gl?.deleteTexture(tex);
+src\App.tsx:1938:        this.textureCache.delete(img);
+src\App.tsx:2277:    this.rafId = requestAnimationFrame(this.render);
+src\App.tsx:2377:          this.updateTextures('bg');
+src\App.tsx:2392:          this.updateTextures('poster');
+src\App.tsx:2400:          this.updateTextures('overlay');
+src\App.tsx:2401:          this.updateTextures('logo');
+src\App.tsx:2402:          this.updateTextures('flash');
+src\App.tsx:2469:    gl.activeTexture(gl.TEXTURE0);
+src\App.tsx:2470:    gl.bindTexture(gl.TEXTURE_2D, this.getTexture(this.bgAssets[this.bgIndex].image));
+src\App.tsx:2471:    gl.activeTexture(gl.TEXTURE1);
+src\App.tsx:2472:    gl.bindTexture(gl.TEXTURE_2D, this.getTexture(this.posterAssets[this.posterIndex].image));
+src\App.tsx:2473:    gl.activeTexture(gl.TEXTURE2);
+src\App.tsx:2474:    gl.bindTexture(gl.TEXTURE_2D, this.getTexture(this.overlayAssets[this.overlayIndex].image));
+src\App.tsx:2475:    gl.activeTexture(gl.TEXTURE3);
+src\App.tsx:2476:    gl.bindTexture(gl.TEXTURE_2D, this.getTexture(this.logoAssets[this.logoIndex].image));
+src\App.tsx:2477:    gl.activeTexture(gl.TEXTURE4);
+src\App.tsx:2478:    gl.bindTexture(gl.TEXTURE_2D, this.getTexture(this.flashAssets[this.flashIndex].image));
+src\App.tsx:2571:    if (this.rafId) cancelAnimationFrame(this.rafId);
+src\App.tsx:2575:      this.textureCache.forEach(tex => gl.deleteTexture(tex));
+src\App.tsx:2576:      this.textureCache.clear();
+src\App.tsx:2970:  useEffect(() => {
+src\App.tsx:3008:  useEffect(() => {
+src\App.tsx:3009:    if (!navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== 'function') {
+src\App.tsx:3013:    navigator.mediaDevices.enumerateDevices().then(devices => {
+src\App.tsx:3079:  useEffect(() => {
+src\App.tsx:3086:  useEffect(() => {
+src\App.tsx:3096:  useEffect(() => {
+src\App.tsx:3170:    return () => { socket.disconnect(); };
+src\App.tsx:3173:  useEffect(() => {
+src\App.tsx:3183:  useEffect(() => {
+src\App.tsx:3201:  useEffect(() => {
+src\App.tsx:3214:  useEffect(() => {
+src\App.tsx:3220:  useEffect(() => {
+src\App.tsx:3260:  useEffect(() => {
+src\App.tsx:3284:  useEffect(() => {
+

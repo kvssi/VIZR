@@ -1,0 +1,1149 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index b25ccbc..1e4d6cd 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -8,253 +8,20 @@ import { MusicalState, SignalFeatures, MusicalContext, ControlState, defaultCont
+ 
+ const ToggleSwitch = ({ label, checked, onChange }: { label: string, checked: boolean, onChange: (checked: boolean) => void }) => (
+   <label 
+-    className="flex items-center justify-between gap-3 cursor-pointer py-2 px-3 bg-neutral-900/80 rounded-lg border border-neutral-800 hover:border-neutral-600 transition-colors w-full"
++    className="flex items-center justify-between gap-3 cursor-pointer py-2 px-4 bg-[#1f1f1f] rounded-sm border border-[#484848]/40 hover:border-[#50FA7B]/50 transition-colors w-full"
+     onClick={(e) => e.stopPropagation()}
+   >
+-    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300 truncate flex-1 text-left">{label}</span>
++    <span className="text-[10px] font-bold uppercase tracking-wider text-white truncate flex-1 text-left">{label}</span>
+     <div className="relative inline-flex items-center shrink-0">
+-      <input 
+-        type="checkbox" 
+-        className="sr-only peer" 
+-        checked={checked} 
+-        onChange={(e) => onChange(e.target.checked)} 
+-      />
+-      <div className="w-9 h-5 bg-neutral-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-neutral-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-white peer-checked:after:bg-black"></div>
++      <input type="checkbox" className="sr-only peer" checked={checked} onChange={(e) => onChange(e.target.checked)} />
++      <div className="w-8 h-4 bg-[#262626] rounded-sm peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-sm after:h-3 after:w-3.5 after:transition-all peer-checked:bg-[#50FA7B]/20 peer-checked:border-[#50FA7B] peer-checked:after:bg-[#50FA7B]"></div>
+     </div>
+   </label>
+ );
+ 
+ const APP_VERSION = "2.0 beta";
+ 
+-const AudioLevelMeter = ({ mode, deviceId, file, onError, onClearFile }: { mode: 'mic' | 'ambient' | 'screen' | 'file', deviceId?: string, file?: File, onError?: (err: string | null) => void, onClearFile?: () => void }) => {
+-  const canvasRef = useRef<HTMLCanvasElement>(null);
+-  const analyzerRef = useRef<AnalyserNode | null>(null);
+-  const ctxRef = useRef<AudioContext | null>(null);
+-  const streamRef = useRef<MediaStream | null>(null);
+-  const audioElRef = useRef<HTMLAudioElement | null>(null);
+-  const reqRef = useRef<number>(0);
+-  const [isPlaying, setIsPlaying] = useState(false);
+-
+-  useEffect(() => {
+-    if (mode === 'ambient') {
+-      if (onError) onError(null);
+-      return;
+-    }
+-
+-    let isMounted = true;
+-
+-    const startAudio = async () => {
+-      try {
+-        if (onError) onError(null);
+-        
+-        if (!navigator.mediaDevices) {
+-          throw new Error("Media devices API is not available. This usually happens in insecure contexts or very old browsers.");
+-        }
+-
+-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+-        ctxRef.current = ctx;
+-        const analyzer = ctx.createAnalyser();
+-        analyzer.fftSize = 256;
+-        analyzerRef.current = analyzer;
+-
+-        if (mode === 'file' && file) {
+-          const audioEl = new Audio(URL.createObjectURL(file));
+-          audioEl.loop = true;
+-          audioElRef.current = audioEl;
+-          const source = ctx.createMediaElementSource(audioEl);
+-          source.connect(analyzer);
+-          analyzer.connect(ctx.destination);
+-          setIsPlaying(false);
+-        } else if (mode === 'mic') {
+-          const stream = await navigator.mediaDevices.getUserMedia({
+-            audio: deviceId ? { deviceId: { exact: deviceId } } : true
+-          });
+-          if (!isMounted) {
+-            stream.getTracks().forEach(t => t.stop());
+-            return;
+-          }
+-          if (stream.getAudioTracks().length === 0) {
+-            stream.getTracks().forEach(t => t.stop());
+-            throw new Error("No audio track found.");
+-          }
+-          streamRef.current = stream;
+-          const source = ctx.createMediaStreamSource(stream);
+-          source.connect(analyzer);
+-        } else if (mode === 'screen') {
+-          // @ts-ignore
+-          const getDisplayMedia = navigator.mediaDevices.getDisplayMedia?.bind(navigator.mediaDevices) || navigator.getDisplayMedia?.bind(navigator);
+-          
+-          if (!getDisplayMedia) {
+-            const isIframe = window.self !== window.top;
+-            if (isIframe) {
+-              throw new Error("Screen capture is restricted within the preview iframe. Please open the application in a new tab using the 'Open in New Tab' button below to use this feature.");
+-            } else {
+-              throw new Error("Screen capture is not supported in this browser. Please try using a modern desktop browser like Chrome, Edge, or Firefox.");
+-            }
+-          }
+-
+-          const stream = await getDisplayMedia({
+-            audio: true,
+-            video: true
+-          });
+-          if (!isMounted) {
+-            stream.getTracks().forEach(t => t.stop());
+-            return;
+-          }
+-          if (stream.getAudioTracks().length === 0) {
+-            stream.getTracks().forEach(t => t.stop());
+-            throw new Error("No audio track found. Please make sure to share audio.");
+-          }
+-          streamRef.current = stream;
+-          const source = ctx.createMediaStreamSource(stream);
+-          source.connect(analyzer);
+-        }
+-
+-        const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+-        const canvas = canvasRef.current;
+-        if (!canvas) return;
+-        const canvasCtx = canvas.getContext('2d');
+-        if (!canvasCtx) return;
+-
+-        const draw = () => {
+-          if (!isMounted) return;
+-          reqRef.current = requestAnimationFrame(draw);
+-          analyzer.getByteFrequencyData(dataArray);
+-          
+-          let sum = 0;
+-          for (let i = 0; i < dataArray.length; i++) {
+-            sum += dataArray[i];
+-          }
+-          const avg = sum / dataArray.length;
+-          const vol = avg / 255; // 0 to 1
+-
+-          canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+-          
+-          // Draw background
+-          canvasCtx.fillStyle = '#1a1a1a';
+-          canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+-
+-          // Draw level
+-          const width = vol * canvas.width * 1.5; // boost visual a bit
+-          
+-          // Gradient
+-          const gradient = canvasCtx.createLinearGradient(0, 0, canvas.width, 0);
+-          gradient.addColorStop(0, '#4ade80'); // green
+-          gradient.addColorStop(0.6, '#eab308'); // yellow
+-          gradient.addColorStop(1, '#ef4444'); // red
+-          
+-          canvasCtx.fillStyle = gradient;
+-          canvasCtx.fillRect(0, 0, Math.min(width, canvas.width), canvas.height);
+-
+-          // Draw grid lines
+-          canvasCtx.fillStyle = '#000';
+-          for (let i = 1; i < 10; i++) {
+-            canvasCtx.fillRect((canvas.width / 10) * i, 0, 1, canvas.height);
+-          }
+-        };
+-        draw();
+-      } catch (err: any) {
+-        console.error("Preview audio error:", err);
+-        if (onError) {
+-          const isIframe = window.self !== window.top;
+-          if (mode === 'screen' && isIframe) {
+-            onError("Screen capture is restricted within the preview iframe. Please open the application in a new tab using the 'Open in New Tab' button below to use this feature.");
+-          } else if (err.name === 'NotAllowedError' || err.message?.includes('Permission denied')) {
+-            onError("Permission denied by user. Please allow access to use this feature.");
+-          } else if (err.message?.includes('No audio track found')) {
+-            onError(err.message);
+-          } else if (mode === 'screen') {
+-            onError("Screen capture failed. Please ensure you have granted permission and are sharing audio.");
+-          } else {
+-            onError("Microphone access was denied. Please allow microphone access or try opening in a new tab.");
+-          }
+-        }
+-      }
+-    };
+-
+-    startAudio();
+-
+-    return () => {
+-      isMounted = false;
+-      cancelAnimationFrame(reqRef.current);
+-      if (streamRef.current) {
+-        streamRef.current.getTracks().forEach(t => t.stop());
+-      }
+-      if (audioElRef.current) {
+-        audioElRef.current.pause();
+-        audioElRef.current.src = '';
+-      }
+-      if (ctxRef.current && ctxRef.current.state !== 'closed') {
+-        ctxRef.current.close().catch(() => {});
+-      }
+-    };
+-  }, [mode, deviceId, file]);
+-
+-  const togglePlay = () => {
+-    if (audioElRef.current) {
+-      if (isPlaying) {
+-        audioElRef.current.pause();
+-        setIsPlaying(false);
+-      } else {
+-        audioElRef.current.play().then(() => {
+-          setIsPlaying(true);
+-        }).catch(err => {
+-          console.error("Play error:", err);
+-        });
+-      }
+-    }
+-  };
+-
+-  if (mode === 'ambient') return null;
+-
+-  return (
+-    <div className="mt-3 bg-neutral-900 border border-neutral-800 p-3 rounded-lg flex flex-col gap-3">
+-      {mode === 'file' && file ? (
+-        <div className="flex items-center gap-3 pb-3 border-b border-neutral-800/50">
+-          <button 
+-            onClick={togglePlay}
+-            className="w-10 h-10 flex items-center justify-center bg-white text-black rounded-full hover:bg-neutral-200 transition-colors shrink-0"
+-            title={isPlaying ? "Pause Preview" : "Play Preview"}
+-          >
+-            {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-1" />}
+-          </button>
+-          <div className="flex-1 min-w-0">
+-            <div className="text-sm font-bold text-white truncate">{file.name}</div>
+-            <div className="text-[10px] uppercase tracking-widest text-neutral-500">Audio Preview</div>
+-          </div>
+-          <div className="shrink-0 flex items-center gap-2">
+-            <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded-full border ${isPlaying ? 'border-emerald-500/30 text-emerald-500 bg-emerald-500/10 animate-pulse' : 'border-neutral-700 text-neutral-500 bg-neutral-800'}`}>
+-              {isPlaying ? 'Playing' : 'Ready'}
+-            </span>
+-            {onClearFile && (
+-              <button 
+-                onClick={onClearFile}
+-                className="p-1.5 text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-full transition-colors"
+-                title="Remove File"
+-              >
+-                <X size={14} />
+-              </button>
+-            )}
+-          </div>
+-        </div>
+-      ) : (
+-        <div className="flex justify-between items-center">
+-          <span className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold">Signal Level</span>
+-          <span className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold animate-pulse">Active</span>
+-        </div>
+-      )}
+-      
+-      <div className="flex flex-col gap-1">
+-        {mode === 'file' && file && (
+-          <div className="flex justify-between items-center px-1">
+-            <span className="text-[9px] uppercase tracking-widest text-neutral-500">Level</span>
+-          </div>
+-        )}
+-        <canvas ref={canvasRef} width={300} height={12} className="w-full h-3 rounded-full overflow-hidden bg-neutral-950" />
+-      </div>
+-    </div>
+-  );
+-};
++import { AudioLevelMeter } from './AudioLevelMeter';
+ 
+ export type AssetType = 'bg' | 'poster' | 'overlay' | 'logo' | 'flash';
+ export type AssetAspect = 'landscape' | 'portrait' | 'square';
+@@ -317,7 +84,7 @@ const parseMetadata = (file: File, img: HTMLImageElement): ImageMetadata => {
+   };
+ };
+ 
+-class AudioAnalyzer {
++export class AudioAnalyzer {
+   ctx: AudioContext;
+   analyzer: AnalyserNode;
+   dataArray: Uint8Array;
+@@ -572,6 +339,7 @@ const dummyAsset: AssetItem = {
+ };
+ 
+ class VisualEngine {
++  rafId: number = 0;
+   canvas: HTMLCanvasElement;
+   gl: WebGLRenderingContext;
+   assets: AssetItem[];
+@@ -691,9 +459,7 @@ class VisualEngine {
+   constructor(
+     canvas: HTMLCanvasElement, 
+     assets: AssetItem[], 
+-    audioMode: 'mic' | 'ambient' | 'screen' | 'file', 
+-    deviceId: string | undefined, 
+-    audioFile: File | undefined,
++    audioAnalyzer: AudioAnalyzer | null,
+     visualMode: 'signal-glitch' | 'lava-space' | 'represent' | 'contour' | 'kaleidoscope',
+     colorMode: string,
+     onError?: (err: Error) => void
+@@ -701,9 +467,7 @@ class VisualEngine {
+     this.canvas = canvas;
+     this.gl = canvas.getContext('webgl')!;
+     this.assets = assets;
+-    this.audioMode = audioMode;
+-    this.deviceId = deviceId;
+-    this.audioFile = audioFile;
++    
+     this.visualMode = visualMode;
+     this.colorMode = colorMode;
+     this.onError = onError;
+@@ -727,13 +491,7 @@ class VisualEngine {
+     this.logoIndex = Math.floor(Math.random() * this.logoAssets.length);
+     this.flashIndex = Math.floor(Math.random() * this.flashAssets.length);
+     
+-    if (audioMode !== 'ambient') {
+-      this.audioAnalyzer = new AudioAnalyzer();
+-      this.audioAnalyzer.start(audioMode, deviceId, audioFile).catch(err => {
+-        console.error("Failed to start audio analyzer", err);
+-        if (this.onError) this.onError(err);
+-      });
+-    }
++    this.audioAnalyzer = audioAnalyzer;
+ 
+     this.initGL();
+     this.updateTextures();
+@@ -2516,7 +2274,7 @@ class VisualEngine {
+ 
+   render = () => {
+     if (!this.running) return;
+-    requestAnimationFrame(this.render);
++    this.rafId = requestAnimationFrame(this.render);
+ 
+     const now = performance.now();
+     const dt = (now - this.lastTime) / 1000;
+@@ -2810,10 +2568,8 @@ class VisualEngine {
+ 
+   stop() {
+     this.running = false;
++    if (this.rafId) cancelAnimationFrame(this.rafId);
+     window.removeEventListener('resize', this.resize);
+-    if (this.audioAnalyzer) {
+-      this.audioAnalyzer.stop();
+-    }
+     const gl = this.gl;
+     if (gl) {
+       this.textureCache.forEach(tex => gl.deleteTexture(tex));
+@@ -3209,6 +2965,46 @@ export default function App() {
+   const engineRef = useRef<VisualEngine | null>(null);
+   const fileInputRef = useRef<HTMLInputElement>(null);
+ 
++  const centralAnalyzerRef = useRef<any>(null);
++
++  useEffect(() => {
++    if (audioMode === 'ambient') {
++      if (centralAnalyzerRef.current) {
++        centralAnalyzerRef.current.stop();
++        centralAnalyzerRef.current = null;
++      }
++      return;
++    }
++    
++    let isMounted = true;
++    setAudioError(null);
++    
++    if (centralAnalyzerRef.current) {
++      centralAnalyzerRef.current.stop();
++    }
++    
++    const analyzer = new AudioAnalyzer();
++    centralAnalyzerRef.current = analyzer;
++    
++    analyzer.start(audioMode, deviceId, audioFile).catch((err: Error) => {
++      console.error("Audio Access Error:", err);
++      if (isMounted) setAudioError(err.message || "Audio access denied.");
++    });
++    
++    if (engineRef.current) {
++      engineRef.current.audioAnalyzer = analyzer;
++    }
++    
++    return () => {
++      isMounted = false;
++      if (centralAnalyzerRef.current === analyzer) {
++        analyzer.stop();
++        centralAnalyzerRef.current = null;
++        if (engineRef.current) engineRef.current.audioAnalyzer = null;
++      }
++    };
++  }, [audioMode, deviceId, audioFile]);
++
+   useEffect(() => {
+     if (!navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== 'function') {
+       console.warn("enumerateDevices is not supported in this context.");
+@@ -3390,9 +3186,7 @@ export default function App() {
+       engineRef.current = new VisualEngine(
+         canvasRef.current, 
+         assets, 
+-        audioMode, 
+-        deviceId, 
+-        audioFile,
++        centralAnalyzerRef.current,
+         visualMode,
+         colorMode,
+         (err) => {
+@@ -3403,7 +3197,15 @@ export default function App() {
+     }
+   }, [isPlaying, audioMode, deviceId, audioFile, visualMode]);
+ 
++  const prevAssetsRef = useRef<AssetItem[]>([]);
+   useEffect(() => {
++    const currentSrcs = new Set(assets.map(a => a.image.src));
++    prevAssetsRef.current.forEach(oldAsset => {
++      if (!currentSrcs.has(oldAsset.image.src) && oldAsset.image.src.startsWith('blob:')) {
++        URL.revokeObjectURL(oldAsset.image.src);
++      }
++    });
++    prevAssetsRef.current = assets;
+     if (engineRef.current) {
+       engineRef.current.updateAssets(assets);
+     }
+@@ -3844,196 +3646,150 @@ export default function App() {
+   }
+ 
+   return (
+-    <div className="min-h-screen bg-black text-neutral-300 font-mono flex flex-col p-4 sm:p-6 lg:p-8 selection:bg-white selection:text-black">
+-      <div className="w-full flex-1 border border-neutral-800 p-6 sm:p-8 bg-[#050505] shadow-2xl relative flex flex-col">
+-        
+-        <div className="space-y-2 mb-8">
+-          <div className="flex items-center justify-between">
+-            <h1 className="text-3xl font-bold tracking-tighter uppercase text-white">VIZR</h1>
+-            <div className="flex items-center gap-2">
+-              <span className="px-2 py-1 bg-white text-black text-[10px] font-bold tracking-widest uppercase">v{APP_VERSION}</span>
+-            </div>
++    <div className="h-screen w-screen overflow-hidden bg-black text-white font-['Inter'] selection:bg-[#50FA7B] selection:text-black flex flex-col">
++      {/* TopNavBar */}
++      <header className="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-16 bg-black/40 backdrop-blur-xl border-b border-[#ffffff1a] shadow-[0_0_40px_0_rgba(80,250,123,0.1)] transition-all duration-300 ease-out">
++        <div className="text-2xl font-black tracking-tighter text-[#50FA7B] font-['Space_Grotesk']">VIZR</div>
++        <nav className="hidden md:flex gap-10 font-['Space_Grotesk'] tracking-[-0.04em] uppercase text-xs">
++          <a className="text-[#50FA7B] border-b-2 border-[#50FA7B] pb-1 transition-all duration-300 ease-out" href="#">Visuals</a>
++          <button onClick={() => setShowRemoteModal(true)} className="text-[#ababab] hover:text-white transition-colors uppercase">Remote</button>
++          <button onClick={() => setView('editor')} className="text-[#ababab] hover:text-white transition-colors uppercase">Assets</button>
++        </nav>
++        <div className="flex items-center gap-6">
++          <span className="px-2 py-1 bg-[#ffffff1a] text-white text-[10px] font-bold tracking-widest uppercase rounded-sm border border-[#ffffff1a] shadow-inner">
++            v{APP_VERSION}
++          </span>
++        </div>
++      </header>
++
++      {/* SideNavBar */}
++      <aside className="fixed left-0 top-16 h-[calc(100vh-64px)] flex flex-col items-center py-8 gap-6 bg-[#131313] border-r border-[#ffffff0d] w-20 z-40">
++        <div className="flex flex-col items-center mb-4">
++          <div className="w-2 h-2 rounded-full bg-[#50FA7B] mb-1 animate-pulse"></div>
++          <div className="font-['Inter'] uppercase tracking-widest text-[8px] text-[#50FA7B]">SIGNAL</div>
++        </div>
++        <nav className="flex flex-col gap-8 flex-1 w-full items-center px-2">
++          <button className="bg-gradient-to-br from-[#50FA7B] to-[#04d259] text-black w-10 h-10 rounded-sm shadow-[0_0_15px_rgba(80,250,123,0.4)] flex items-center justify-center scale-95 active:scale-90 transition-transform">
++            <Activity size={20} />
++          </button>
++          <button onClick={() => setShowRemoteModal(true)} className="text-[#ababab] hover:text-[#50FA7B] w-10 h-10 flex items-center justify-center scale-95 active:scale-90 transition-transform" title="VIZR Remote">
++            <Wifi size={20} />
++          </button>
++          <button onClick={handleShuffle} className="text-[#ababab] hover:text-[#50FA7B] w-10 h-10 flex items-center justify-center scale-95 active:scale-90 transition-transform" title="Shuffle Images">
++            <RefreshCw size={20} />
++          </button>
++          <button onClick={handleRandomize} className="text-[#ababab] hover:text-[#50FA7B] w-10 h-10 flex items-center justify-center scale-95 active:scale-90 transition-transform" title="Randomize Parameters">
++            <Dices size={20} />
++          </button>
++        </nav>
++        <div className="mt-auto group flex flex-col items-center justify-center mb-8 h-24">
++          <div onClick={handleStart} className="font-['Inter'] uppercase tracking-widest text-[10px] text-[#ababab] group-hover:text-[#50FA7B] group-hover:shadow-[0_0_15px_rgba(80,250,123,0.4)] transition-all cursor-pointer rotate-180 [writing-mode:vertical-lr] shrink-0">
++            INITIALIZE
+           </div>
+-          <p className="text-xs text-neutral-500 uppercase tracking-widest">Web-Based Visualization System</p>
+         </div>
++      </aside>
+ 
+-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+-          {/* Column 1 */}
+-          <div className="space-y-8">
+-            {/* File Selection */}
+-          <div className="space-y-3">
+-            <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">1. Source Material</label>
+-            <button 
++      {/* Main Content Canvas */}
++      <main className="ml-20 mt-16 p-8 h-[calc(100vh-64px)] overflow-y-auto bg-black relative">
++        <div className="grid grid-cols-12 gap-6 max-w-7xl mx-auto pb-32">
++          
++          {/* Source Material Section */}
++          <section className="col-span-12 lg:col-span-8 bg-[#1f1f1f]/40 backdrop-blur-[20px] border border-[#484848]/20 p-6 rounded-md">
++            <div className="flex justify-between items-end mb-6">
++              <div>
++                <span className="font-['Space_Grotesk'] uppercase tracking-[0.2em] text-[10px] text-[#8debff]">Input_Stage</span>
++                <h2 className="font-['Space_Grotesk'] text-3xl font-bold tracking-tight">SOURCE MATERIAL</h2>
++              </div>
++              <div className="flex items-center gap-4">
++                <span className="text-[10px] font-mono text-[#757575]">HASH: 0x5F2E_VZR</span>
++                <button onClick={() => setShowAssetInfoModal(true)} className="text-[#8debff] hover:text-white transition-colors" title="Asset Info">
++                  <Info size={16} />
++                </button>
++              </div>
++            </div>
++            <div 
++              className="relative aspect-video rounded-sm border-2 border-dashed border-[#50FA7B]/30 bg-[#50FA7B]/5 flex items-center justify-center group cursor-pointer overflow-hidden transition-all hover:border-[#50FA7B]/60"
+               onClick={() => fileInputRef.current?.click()}
+-              className="w-full flex flex-col items-center justify-center gap-3 p-8 border border-dashed border-neutral-700 hover:border-white hover:text-white transition-colors bg-neutral-950"
+             >
+-              <Upload size={24} />
+-              <span className="text-sm uppercase tracking-wide">
+-                {assets.length > 0 ? `${assets.length} Images Loaded` : 'Select Image Folder'}
+-              </span>
+-            </button>
+-            <div className="flex items-center justify-between text-[10px] text-neutral-500 font-mono mt-2">
+-              <span>{assets.length > 0 ? `${assets.length} assets loaded` : 'No assets loaded'}</span>
+-              <button 
+-                onClick={() => setShowAssetInfoModal(true)}
+-                className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors underline underline-offset-2"
+-              >
+-                <Info size={12} />
+-                Smart Asset Naming
+-              </button>
+-            </div>
+-            <input 
+-              type="file" 
+-              ref={fileInputRef}
+-              onChange={handleFileChange}
+-              multiple 
+-              accept="image/*"
+-              className="hidden"
+-            />
+-            {assets.length > 0 && (
+-              <div className="mt-4 max-h-32 overflow-y-auto border border-neutral-800 bg-neutral-900 p-2 space-y-2">
+-                {assets.map((asset, i) => (
+-                  <div key={i} className="flex items-center justify-between text-xs">
+-                    <span className="truncate w-1/2 text-neutral-400">{asset.file.name}</span>
+-                    <div className="flex gap-2">
+-                      <span className="px-1.5 py-0.5 bg-neutral-800 text-neutral-300 rounded">{asset.metadata.type}</span>
+-                      <span className="px-1.5 py-0.5 bg-neutral-800 text-neutral-300 rounded">{asset.metadata.behavior}</span>
+-                    </div>
+-                  </div>
+-                ))}
++              {assets.length > 0 && assets[0]?.image?.src && (
++                <img src={assets[0].image.src} alt="Source" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity" />
++              )}
++              <div className="relative z-10 flex flex-col items-center">
++                <Upload className="text-[#50FA7B] mb-4" size={32} />
++                <p className="font-['Space_Grotesk'] uppercase tracking-widest text-xs font-medium">
++                  {assets.length > 0 ? `${assets.length} Images Loaded` : 'Drop visual seed here / Click to browse'}
++                </p>
++                <p className="text-[10px] text-[#ababab] mt-2">MP4, MOV, PNG, JPG // MAX 500MB</p>
+               </div>
+-            )}
+-          </div>
+-
+-          {/* Asset Editor Button */}
+-          <button 
+-            onClick={() => setView('editor')}
+-            className="w-full flex items-center justify-center gap-2 p-3 border border-neutral-800 text-neutral-500 hover:border-neutral-600 hover:text-neutral-300 bg-transparent text-sm uppercase tracking-wide transition-colors"
+-          >
+-            <ImageIcon size={16} />
+-            Open Asset Editor
+-          </button>
+-
+-          {/* Audio Mode */}
+-          <div className="space-y-3">
+-            <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">2. Audio Input</label>
+-            <div className="grid grid-cols-4 gap-2">
+-              <button 
+-                onClick={() => setAudioMode('ambient')}
+-                className={`flex items-center justify-center gap-2 p-3 border text-sm uppercase tracking-wide transition-colors ${
+-                  audioMode === 'ambient' 
+-                    ? 'border-white text-white bg-white/5' 
+-                    : 'border-neutral-800 text-neutral-500 hover:border-neutral-600'
+-                }`}
+-              >
+-                <MicOff size={16} /> Ambient
+-              </button>
+-              <button 
+-                onClick={() => setAudioMode('mic')}
+-                className={`flex items-center justify-center gap-2 p-3 border text-sm uppercase tracking-wide transition-colors ${
+-                  audioMode === 'mic' 
+-                    ? 'border-white text-white bg-white/5' 
+-                    : 'border-neutral-800 text-neutral-500 hover:border-neutral-600'
+-                }`}
+-              >
+-                <Mic size={16} /> Mic
+-              </button>
+-              <button 
+-                onClick={() => setAudioMode('screen')}
+-                className={`flex items-center justify-center gap-2 p-3 border text-sm uppercase tracking-wide transition-colors ${
+-                  audioMode === 'screen' 
+-                    ? 'border-white text-white bg-white/5' 
+-                    : 'border-neutral-800 text-neutral-500 hover:border-neutral-600'
+-                }`}
+-              >
+-                <MonitorUp size={16} /> Screen
+-              </button>
+-              <button 
+-                onClick={() => setAudioMode('file')}
+-                className={`flex items-center justify-center gap-2 p-3 border text-sm uppercase tracking-wide transition-colors ${
+-                  audioMode === 'file' 
+-                    ? 'border-white text-white bg-white/5' 
+-                    : 'border-neutral-800 text-neutral-500 hover:border-neutral-600'
+-                }`}
+-              >
+-                <FileAudio size={16} /> File
+-              </button>
+             </div>
+-            
++            <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple accept="image/*" className="hidden" />
++          </section>
++
++          {/* Audio Input Section */}
++          <section className="col-span-12 lg:col-span-4 bg-[#1f1f1f]/40 backdrop-blur-[20px] border border-[#484848]/20 p-6 rounded-md flex flex-col">
++            <span className="font-['Space_Grotesk'] uppercase tracking-[0.2em] text-[10px] text-[#8debff]">Spectral_Analysis</span>
++            <h2 className="font-['Space_Grotesk'] text-2xl font-bold tracking-tight mb-6">AUDIO INPUT</h2>
++            <div className="grid grid-cols-2 gap-3 flex-1 mb-6">
++              {(['ambient', 'mic', 'screen', 'file'] as const).map((mode) => (
++                <button 
++                  key={mode}
++                  onClick={() => setAudioMode(mode)}
++                  className={`flex flex-col items-center justify-center gap-2 rounded-sm py-4 transition-all ${
++                    audioMode === mode 
++                      ? 'border border-[#50FA7B] bg-[#50FA7B]/5 text-[#50FA7B]' 
++                      : 'bg-[#1f1f1f]/40 border border-[#484848]/20 text-[#ababab] hover:bg-[#50FA7B]/10 hover:border-[#50FA7B] hover:text-white'
++                  }`}
++                >
++                  {mode === 'ambient' && <MicOff size={20} />}
++                  {mode === 'mic' && <Mic size={20} />}
++                  {mode === 'screen' && <MonitorUp size={20} />}
++                  {mode === 'file' && <FileAudio size={20} />}
++                  <span className="font-['Inter'] uppercase tracking-widest text-[9px]">{mode}</span>
++                </button>
++              ))}
++            </div>
++
+             {audioMode === 'file' && !audioFile && (
+-              <div className="mt-2">
+-                <label className="flex items-center justify-center w-full p-4 border border-dashed border-neutral-700 hover:border-neutral-500 cursor-pointer transition-colors text-neutral-400 hover:text-white rounded-lg">
+-                  <input 
+-                    type="file" 
+-                    accept="audio/*" 
+-                    className="hidden" 
+-                    onChange={(e) => {
+-                      if (e.target.files && e.target.files[0]) {
+-                        setAudioFile(e.target.files[0]);
+-                      }
+-                    }}
+-                  />
++              <div className="mb-6">
++                <label className="flex items-center justify-center w-full p-4 border border-dashed border-[#50FA7B]/30 hover:border-[#50FA7B]/60 cursor-pointer transition-colors text-[#ababab] hover:text-white rounded-sm bg-[#50FA7B]/5">
++                  <input type="file" accept="audio/*" className="hidden" onChange={(e) => {
++                    if (e.target.files && e.target.files[0]) {
++                      setAudioFile(e.target.files[0]);
++                    }
++                  }} />
+                   <span className="text-sm flex items-center gap-2"><Upload size={16} /> Select Audio File</span>
+                 </label>
+               </div>
+             )}
+-
++            
+             {audioMode === 'mic' && devices.length > 0 && (
+-              <select 
+-                value={deviceId} 
+-                onChange={e => setDeviceId(e.target.value)}
+-                className="w-full p-2 bg-neutral-950 border border-neutral-800 text-sm text-neutral-300 outline-none focus:border-neutral-500"
+-              >
+-                {devices.map(d => (
+-                  <option key={d.deviceId} value={d.deviceId}>
+-                    {d.label || `Microphone ${d.deviceId.slice(0, 5)}...`}
+-                  </option>
+-                ))}
++              <select value={deviceId} onChange={e => setDeviceId(e.target.value)} className="w-full p-2 mb-6 bg-[#131313] border border-[#484848]/20 text-sm text-white outline-none rounded-sm">
++                {devices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${d.deviceId.slice(0, 5)}...`}</option>)}
+               </select>
+             )}
++
+             {audioError && (
+-              <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+-                <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+-                  <Activity size={12} /> Audio Input Error
+-                </p>
+-                <p className="text-neutral-400 text-[10px] leading-relaxed">
+-                  {audioError}
+-                </p>
+-                {audioMode === 'screen' && (
+-                  <button 
+-                    onClick={() => {
+-                      const url = process.env.APP_URL || window.location.href;
+-                      window.open(url, '_blank');
+-                    }}
+-                    className="mt-2 w-full py-1.5 bg-red-500 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-red-600 transition-colors rounded flex items-center justify-center gap-2"
+-                  >
+-                    <Maximize size={12} /> Open in New Tab
+-                  </button>
+-                )}
+-              </div>
++               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-sm mb-6 text-red-500 text-[10px] uppercase font-bold text-center">
++                 Error: {audioError}
++               </div>
+             )}
+-            
+-            {((audioMode === 'file' && audioFile) || audioMode !== 'file') && (
+-              <AudioLevelMeter 
+-                mode={audioMode} 
+-                deviceId={deviceId} 
+-                file={audioFile} 
+-                onError={setAudioError} 
+-                onClearFile={() => setAudioFile(undefined)}
+-              />
++
++            {((audioMode === 'file' && audioFile) || audioMode !== 'file') && !audioError && (
++              <div className="mt-auto">
++                <AudioLevelMeter mode={audioMode} file={audioFile} analyzer={analyzerRef.current} onClearFile={() => setAudioFile(undefined)} />
++              </div>
+             )}
+-          </div>
+-          </div>
++          </section>
+ 
+-          {/* Column 2 */}
+-          <div className="space-y-8">
+-            {/* Visual Mode */}
+-            <div className="space-y-3">
+-              <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">3. Visual Mode</label>
++          {/* Visual Mode Section */}
++          <section className="col-span-12 lg:col-span-4 bg-[#1f1f1f]/40 backdrop-blur-[20px] border border-[#484848]/20 p-6 rounded-md">
++            <span className="font-['Space_Grotesk'] uppercase tracking-[0.2em] text-[10px] text-[#8debff]">Engine_Kernel</span>
++            <h2 className="font-['Space_Grotesk'] text-2xl font-bold tracking-tight mb-6">VISUAL MODE</h2>
++            <div className="space-y-6">
+               <select 
+                 value={visualMode} 
+                 onChange={e => {
+-                  const newMode = e.target.value as 'signal-glitch' | 'lava-space' | 'represent' | 'contour' | 'kaleidoscope';
++                  const newMode = e.target.value as any;
+                   setVisualMode(newMode);
+                   if (newMode === 'signal-glitch') setColorMode('mostly-mono');
+                   else if (newMode === 'lava-space') setColorMode('cosmic-flow');
+@@ -4041,7 +3797,7 @@ export default function App() {
+                   else if (newMode === 'kaleidoscope') setColorMode('mostly-mono');
+                   else setColorMode('atmospheric');
+                 }}
+-                className="w-full p-3 bg-neutral-950 border border-neutral-800 text-sm uppercase tracking-wide text-neutral-300 outline-none focus:border-neutral-500"
++                className="w-full p-4 bg-[#131313] border border-[#50FA7B]/40 text-sm uppercase tracking-wide text-white outline-none focus:border-[#50FA7B] rounded-sm appearance-none cursor-pointer"
+               >
+                 <option value="signal-glitch">SIGNAL GLITCH</option>
+                 <option value="lava-space">LAVA SPACE</option>
+@@ -4049,244 +3805,198 @@ export default function App() {
+                 <option value="contour">CONTOUR</option>
+                 <option value="kaleidoscope">KALEIDOSCOPE</option>
+               </select>
+-            </div>
+-
+-            {/* Color Mode */}
+-            <div className="space-y-3 pt-2 lg:pt-0">
+-              <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">4. Color Palette</label>
+-              <select 
+-                value={colorMode} 
+-                onChange={e => setColorMode(e.target.value)}
+-                className="w-full p-3 bg-neutral-950 border border-neutral-800 text-sm uppercase tracking-wide text-neutral-300 outline-none focus:border-neutral-500"
+-              >
+-                {visualMode === 'represent' ? (
+-                  <>
+-                    <option value="atmospheric">Atmospheric</option>
+-                  </>
+-                ) : visualMode === 'signal-glitch' ? (
+-                  <>
+-                    <option value="mostly-mono">Mostly Mono</option>
+-                    <option value="mono-accent">Mono + Accent</option>
+-                    <option value="mixed">Mixed</option>
+-                    <option value="spectral-rgb">Spectral RGB</option>
+-                  </>
+-                ) : visualMode === 'contour' ? (
+-                  <>
+-                    <option value="print-black">PRINT BLACK</option>
+-                    <option value="topo-relief">TOPO RELIEF</option>
+-                    <option value="spectral-contour">SPECTRAL CONTOUR</option>
+-                  </>
+-                ) : visualMode === 'kaleidoscope' ? (
+-                  <>
+-                    <option value="prism">PRISM</option>
+-                    <option value="tube-light">TUBE LIGHT</option>
+-                    <option value="glass-bloom">GLASS BLOOM</option>
+-                    <option value="chroma-wheel">CHROMA WHEEL</option>
+-                  </>
+-                ) : (
+-                  <>
+-                    <option value="cosmic-flow">COSMIC FLOW</option>
+-                    <option value="dual-lava">DUAL LAVA</option>
+-                    <option value="spectral-flow">SPECTRAL FLOW</option>
+-                  </>
+-                )}
+-              </select>
+-            </div>
+-
+-            {/* FX Settings */}
+-            <div className="space-y-4 pt-2 lg:pt-0">
+-              <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">5. FX Settings</label>
+-            
+-            <div className="space-y-3">
+-              <div className="space-y-1">
++              
++              <div className="space-y-4">
+                 <div className="flex justify-between items-center">
+-                  <span className="text-xs text-neutral-400 uppercase">{visualMode === 'kaleidoscope' ? 'Mirror Depth' : (visualMode === 'contour' ? 'Structure' : 'Global')}</span>
+-                  <span className="text-xs text-neutral-500">{(globalEffects * 100).toFixed(0)}%</span>
++                  <span className="font-['Space_Grotesk'] uppercase tracking-[0.2em] text-[10px] text-[#8debff]">Features</span>
+                 </div>
+-                <input 
+-                  type="range" 
+-                  min="0" max="1" step="0.01"
+-                  value={globalEffects}
+-                  onChange={(e) => setGlobalEffects(parseFloat(e.target.value))}
+-                  className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none"
+-                />
+-              </div>
+-
+-              <div className="space-y-1">
+-                <div className="flex justify-between items-center">
+-                  <span className="text-xs text-neutral-400 uppercase">Smooth</span>
+-                  <span className="text-xs text-neutral-400 uppercase">{visualMode === 'signal-glitch' ? 'Flicker' : (visualMode === 'kaleidoscope' ? 'Shimmer' : (visualMode === 'contour' ? 'Raster Density' : 'Fluid Amount'))}</span>
++                <div className="grid grid-cols-1 gap-2">
++                  <ToggleSwitch label={visualMode === 'signal-glitch' ? "Glitch Effects" : visualMode === 'lava-space' ? "Fluid Dynamics" : visualMode === 'contour' ? "Shatter" : visualMode === 'kaleidoscope' ? "Symmetry Break" : "Logo Reactivity"} checked={enableGlitch} onChange={setEnableGlitch} />
++                  <ToggleSwitch label={visualMode === 'signal-glitch' ? "VHS Overlay" : visualMode === 'lava-space' ? "Space Dust" : visualMode === 'contour' ? "Raster Scan" : visualMode === 'kaleidoscope' ? "Multi Layer" : "Atmospheric"} checked={enableVHS} onChange={setEnableVHS} />
++                  <ToggleSwitch label={visualMode === 'signal-glitch' ? "Curve" : visualMode === 'lava-space' ? "Lens Distortion" : visualMode === 'contour' ? "Plane Shift" : visualMode === 'kaleidoscope' ? "Center Lock" : "Spatial Bend"} checked={enableCurvature} onChange={setEnableCurvature} />
++                  <ToggleSwitch label={visualMode === 'signal-glitch' ? "Noise" : visualMode === 'lava-space' ? "Star Grain" : visualMode === 'contour' ? "Depth Noise" : visualMode === 'kaleidoscope' ? "Radial Zoom" : "Energy Noise"} checked={enableNoise} onChange={setEnableNoise} />
++                  <ToggleSwitch label={visualMode === 'signal-glitch' ? "RGB Split" : visualMode === 'lava-space' ? "Aura Shift" : visualMode === 'contour' ? "Structural Shift" : visualMode === 'kaleidoscope' ? "Overlay Merge" : "Color Shift"} checked={enableRGBSplit} onChange={setEnableRGBSplit} />
++                  <ToggleSwitch label={visualMode === 'signal-glitch' ? "Drift" : "Subtle Drift"} checked={enableDriftOffset} onChange={setEnableDriftOffset} />
+                 </div>
+-                <input 
+-                  type="range" 
+-                  min="0" max="1" step="0.01"
+-                  value={flickerAmount}
+-                  onChange={(e) => setFlickerAmount(parseFloat(e.target.value))}
+-                  className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none"
+-                />
+               </div>
++            </div>
++          </section>
++
++          {/* FX Settings Section */}
++          <section className="col-span-12 lg:col-span-8 bg-[#1f1f1f]/40 backdrop-blur-[20px] border border-[#484848]/20 p-6 rounded-md">
++            <div className="flex justify-between items-center mb-8">
++              <div>
++                <span className="font-['Space_Grotesk'] uppercase tracking-[0.2em] text-[10px] text-[#8debff]">Processing_Array</span>
++                <h2 className="font-['Space_Grotesk'] text-2xl font-bold tracking-tight">FX SETTINGS</h2>
++              </div>
++              <div className="flex gap-2">
++                <span className="w-1 h-6 bg-[#50FA7B]/20"></span>
++                <span className="w-1 h-6 bg-[#50FA7B]/40"></span>
++                <span className="w-1 h-6 bg-[#50FA7B]/60"></span>
++                <span className="w-1 h-6 bg-[#50FA7B]/80"></span>
++                <span className="w-1 h-6 bg-[#50FA7B]"></span>
++              </div>
++            </div>
++            
++            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
++              {/* Sliders Go Here */}
++              <div className="space-y-6">
++                <div className="space-y-2">
++                  <div className="flex justify-between">
++                    <label className="font-['Inter'] uppercase tracking-[0.15em] text-[9px] text-[#ababab]">Intensity</label>
++                    <span className="text-[9px] font-mono text-[#50FA7B]">{(globalEffects * 100).toFixed(1)}%</span>
++                  </div>
++                  <input type="range" min="0" max="1" step="0.01" value={globalEffects} onChange={(e) => setGlobalEffects(parseFloat(e.target.value))} className="w-full h-1.5 bg-[#262626] rounded-full appearance-none outline-none accent-[#50FA7B]" style={{ boxShadow: '0 0 10px rgba(80,250,123,0.2)' }} />
++                </div>
+ 
+-              <div className="space-y-1">
+-                <div className="flex justify-between items-center">
+-                  <span className="text-xs text-neutral-400 uppercase">{visualMode === 'kaleidoscope' ? 'Rotation' : (visualMode === 'contour' ? 'Structural Motion' : 'Motion Amount')}</span>
+-                  <span className="text-xs text-neutral-500">{(motionAmount * 100).toFixed(0)}%</span>
++                <div className="space-y-2">
++                  <div className="flex justify-between">
++                    <label className="font-['Inter'] uppercase tracking-[0.15em] text-[9px] text-[#ababab]">Flicker</label>
++                    <span className="text-[9px] font-mono text-[#50FA7B]">{(flickerAmount * 100).toFixed(1)}%</span>
++                  </div>
++                  <input type="range" min="0" max="1" step="0.01" value={flickerAmount} onChange={(e) => setFlickerAmount(parseFloat(e.target.value))} className="w-full h-1.5 bg-[#262626] rounded-full appearance-none outline-none accent-[#50FA7B]" style={{ boxShadow: '0 0 10px rgba(80,250,123,0.2)' }} />
+                 </div>
+-                <input 
+-                  type="range" 
+-                  min="0" max="1" step="0.01"
+-                  value={motionAmount}
+-                  onChange={(e) => setMotionAmount(parseFloat(e.target.value))}
+-                  className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none"
+-                />
+               </div>
+ 
+-              <div className="space-y-1">
+-                <div className="flex justify-between items-center">
+-                  <span className="text-xs text-neutral-400 uppercase">{visualMode === 'signal-glitch' ? 'Event Density' : (visualMode === 'kaleidoscope' ? 'Sides' : (visualMode === 'contour' ? 'Strip Count' : 'Wave Density'))}</span>
+-                  <span className="text-xs text-neutral-500">{(eventDensity * 100).toFixed(0)}%</span>
++              <div className="space-y-6">
++                <div className="space-y-2">
++                  <div className="flex justify-between">
++                    <label className="font-['Inter'] uppercase tracking-[0.15em] text-[9px] text-[#ababab]">Motion / Speed</label>
++                    <span className="text-[9px] font-mono text-[#50FA7B]">{(motionAmount * 100).toFixed(1)}%</span>
++                  </div>
++                  <input type="range" min="0" max="1" step="0.01" value={motionAmount} onChange={(e) => setMotionAmount(parseFloat(e.target.value))} className="w-full h-1.5 bg-[#262626] rounded-full appearance-none outline-none accent-[#50FA7B]" style={{ boxShadow: '0 0 10px rgba(80,250,123,0.2)' }} />
+                 </div>
+-                <input 
+-                  type="range" 
+-                  min="0" max="1" step="0.01"
+-                  value={eventDensity}
+-                  onChange={(e) => setEventDensity(parseFloat(e.target.value))}
+-                  className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none"
+-                />
+-              </div>
+ 
+-              <div className="space-y-1">
+-                <div className="flex justify-between items-center">
+-                  <span className="text-xs text-neutral-400 uppercase">{visualMode === 'kaleidoscope' ? 'Pattern Drift' : (visualMode === 'contour' ? 'Reassembly' : 'Transition Speed')}</span>
+-                  <span className="text-xs text-neutral-500">{(transitionSpeed * 100).toFixed(0)}%</span>
++                <div className="space-y-2">
++                  <div className="flex justify-between">
++                    <label className="font-['Inter'] uppercase tracking-[0.15em] text-[9px] text-[#ababab]">Density</label>
++                    <span className="text-[9px] font-mono text-[#50FA7B]">{(eventDensity * 100).toFixed(1)}%</span>
++                  </div>
++                  <input type="range" min="0" max="1" step="0.01" value={eventDensity} onChange={(e) => setEventDensity(parseFloat(e.target.value))} className="w-full h-1.5 bg-[#262626] rounded-full appearance-none outline-none accent-[#50FA7B]" style={{ boxShadow: '0 0 10px rgba(80,250,123,0.2)' }} />
+                 </div>
+-                <input 
+-                  type="range" 
+-                  min="0" max="1" step="0.01"
+-                  value={transitionSpeed}
+-                  onChange={(e) => setTransitionSpeed(parseFloat(e.target.value))}
+-                  className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none"
+-                />
+               </div>
+             </div>
+-          </div>
+-          </div>
+-
+-          {/* Column 3 */}
+-          <div className="space-y-8 flex flex-col h-full">
+-            {/* Visual Toggles */}
+-            <div className="space-y-4">
+-              <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">6. Visual Toggles</label>
+             
+-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Glitch Effects" : visualMode === 'lava-space' ? "Fluid Distortion" : visualMode === 'contour' ? "Shatter" : visualMode === 'kaleidoscope' ? "Symmetry Break" : "Logo Reactivity"} checked={enableGlitch} onChange={setEnableGlitch} />
+-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "VHS Overlay" : visualMode === 'lava-space' ? "Space Dust" : visualMode === 'contour' ? "Raster Layer" : visualMode === 'kaleidoscope' ? "Multi Layer" : "Atmospheric Grain"} checked={enableVHS} onChange={setEnableVHS} />
+-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Screen Curvature" : visualMode === 'lava-space' ? "Liquid Lens" : visualMode === 'contour' ? "Plane Shift" : visualMode === 'kaleidoscope' ? "Center Lock" : "Spatial Bend"} checked={enableCurvature} onChange={setEnableCurvature} />
+-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Noise Layer" : visualMode === 'lava-space' ? "Star Grain" : visualMode === 'contour' ? "Depth Noise" : visualMode === 'kaleidoscope' ? "Radial Zoom" : "Energy Noise"} checked={enableNoise} onChange={setEnableNoise} />
+-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Flicker" : visualMode === 'lava-space' ? "Glow Pulse" : visualMode === 'contour' ? "Bounce" : visualMode === 'kaleidoscope' ? "Depth Logo" : "Glow Pulse"} checked={enableFlicker} onChange={setEnableFlicker} />
+-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "RGB Split" : visualMode === 'lava-space' ? "Aura Shift" : visualMode === 'contour' ? "Structural Shift" : visualMode === 'kaleidoscope' ? "Overlay Merge" : "Color Shift"} checked={enableRGBSplit} onChange={setEnableRGBSplit} />
+-              <ToggleSwitch label={visualMode === 'signal-glitch' ? "Drift Offset" : visualMode === 'lava-space' ? "Cosmic Drift" : visualMode === 'contour' ? "Structural Drift" : "Subtle Drift"} checked={enableDriftOffset} onChange={setEnableDriftOffset} />
+-              {visualMode === 'lava-space' && (
+-                <ToggleSwitch label="Blob Dynamics" checked={enableBlobDynamics} onChange={setEnableBlobDynamics} />
+-              )}
+-            </div>
+-          </div>
+-
+-            {/* Overlay Settings */}
+             {visualMode !== 'represent' && (
+-              <div className="space-y-4">
+-                <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">7. Overlay Settings</label>
+-                <div className="space-y-3">
+-                  <ToggleSwitch 
+-                    label="Enable Overlay" 
+-                    checked={overlaySettings[visualMode]?.enabled ?? true} 
+-                    onChange={(val) => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], enabled: val } }))} 
+-                  />
+-                  
+-                  <div className="space-y-1">
+-                    <div className="flex justify-between items-center">
+-                      <span className="text-xs text-neutral-400 uppercase">Opacity</span>
+-                      <span className="text-xs text-neutral-500">{overlaySettings[visualMode]?.opacity ?? 100}%</span>
+-                    </div>
+-                    <input 
+-                      type="range" 
+-                      min="0" max="100" step="1"
+-                      value={overlaySettings[visualMode]?.opacity ?? 100}
+-                      onChange={(e) => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], opacity: parseInt(e.target.value) } }))}
+-                      className="w-full accent-white h-1 bg-neutral-800 appearance-none outline-none"
++              <div className="mt-8 pt-8 border-t border-[#ffffff0d] grid grid-cols-1 sm:grid-cols-2 gap-8">
++                <div className="space-y-4">
++                   <div className="flex justify-between items-center">
++                    <label className="font-['Inter'] uppercase tracking-[0.15em] text-[9px] text-[#ababab]">Overlay Enable</label>
++                   </div>
++                   <ToggleSwitch 
++                      label="Use Background Overlay" 
++                      checked={overlaySettings[visualMode]?.enabled ?? true} 
++                      onChange={(val: boolean) => setOverlaySettings((prev: any) => ({ ...prev, [visualMode]: { ...prev[visualMode], enabled: val } }))} 
+                     />
++                </div>
++                <div className="space-y-4">
++                  <div className="flex justify-between items-center">
++                    <label className="font-['Inter'] uppercase tracking-[0.15em] text-[9px] text-[#ababab]">Overlay Blend Mode</label>
+                   </div>
+-                  
+-                  <div className="space-y-2 pt-2 border-t border-neutral-800">
+-                    <div className="flex bg-neutral-900 rounded-lg p-1 border border-neutral-800">
+-                      <button
+-                        onClick={() => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], mode: 'black' } }))}
+-                        className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-md transition-colors ${
+-                          (overlaySettings[visualMode]?.mode ?? 'normal') === 'black' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+-                        }`}
+-                      >
+-                        Black
+-                      </button>
+-                      <button
+-                        onClick={() => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], mode: 'white' } }))}
+-                        className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-md transition-colors ${
+-                          (overlaySettings[visualMode]?.mode ?? 'normal') === 'white' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+-                        }`}
+-                      >
+-                        White
+-                      </button>
+-                      <button
+-                        onClick={() => setOverlaySettings(prev => ({ ...prev, [visualMode]: { ...prev[visualMode], mode: 'normal' } }))}
+-                        className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-md transition-colors ${
+-                          (overlaySettings[visualMode]?.mode ?? 'normal') === 'normal' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'
+-                        }`}
+-                      >
+-                        Normal
+-                      </button>
+-                    </div>
++                  <div className="flex bg-[#131313] rounded-sm p-1 border border-[#484848]/20 h-[38px]">
++                    <button
++                      onClick={() => setOverlaySettings((prev: any) => ({ ...prev, [visualMode]: { ...prev[visualMode], mode: 'black' } }))}
++                      className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-1 rounded-sm transition-colors ${
++                        (overlaySettings[visualMode]?.mode ?? 'normal') === 'black' ? 'bg-[#50FA7B]/10 text-[#50FA7B]' : 'text-white/50 hover:text-white'
++                      }`}
++                    >
++                      Dark
++                    </button>
++                    <button
++                      onClick={() => setOverlaySettings((prev: any) => ({ ...prev, [visualMode]: { ...prev[visualMode], mode: 'white' } }))}
++                      className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-1 rounded-sm transition-colors ${
++                        (overlaySettings[visualMode]?.mode ?? 'normal') === 'white' ? 'bg-[#50FA7B]/10 text-[#50FA7B]' : 'text-white/50 hover:text-white'
++                      }`}
++                    >
++                      Light
++                    </button>
++                    <button
++                      onClick={() => setOverlaySettings((prev: any) => ({ ...prev, [visualMode]: { ...prev[visualMode], mode: 'normal' } }))}
++                      className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-1 rounded-sm transition-colors ${
++                        (overlaySettings[visualMode]?.mode ?? 'normal') === 'normal' ? 'bg-[#50FA7B]/10 text-[#50FA7B]' : 'text-white/50 hover:text-white'
++                      }`}
++                    >
++                      Normal
++                    </button>
+                   </div>
+                 </div>
+               </div>
+             )}
+-
+-            <div className="mt-auto space-y-4 pt-8 lg:pt-0">
+-              {/* Start Button */}
+-              <button 
+-                onClick={handleStart}
+-                disabled={assets.length === 0}
+-                className="w-full flex flex-col items-center justify-center gap-2 p-6 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 font-bold uppercase tracking-widest hover:bg-emerald-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-xl"
+-              >
+-                <Play size={24} fill="currentColor" /> 
+-                <span className="text-sm">INITIALIZE</span>
+-              </button>
+-
+-              {/* Remote Button */}
+-              <button 
+-                onClick={() => setShowRemoteModal(true)}
+-                className="w-full flex flex-col items-center justify-center gap-2 p-6 bg-blue-500/20 text-blue-500 border border-blue-500/30 font-bold uppercase tracking-widest hover:bg-blue-500/30 transition-colors rounded-xl"
+-              >
+-                <Wifi size={24} />
+-                <span className="text-sm">VIZR REMOTE</span>
+-              </button>
++          </section>
++
++          {/* Color Palette Section */}
++          <section className="col-span-12 bg-[#1f1f1f]/40 backdrop-blur-[20px] border border-[#484848]/20 p-6 rounded-md">
++            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
++              <div>
++                <span className="font-['Space_Grotesk'] uppercase tracking-[0.2em] text-[10px] text-[#8debff]">Chroma_Map</span>
++                <h2 className="font-['Space_Grotesk'] text-2xl font-bold tracking-tight">COLOR LAYOUT</h2>
++              </div>
++              <div className="flex items-center gap-4">
++                <select 
++                  value={colorMode} 
++                  onChange={e => setColorMode(e.target.value)}
++                  className="p-3 px-6 bg-[#131313] border border-[#50FA7B]/40 text-sm uppercase tracking-widest text-[#50FA7B] font-bold outline-none focus:border-[#50FA7B] rounded-sm cursor-pointer shadow-[0_0_15px_rgba(80,250,123,0.1)] hover:shadow-[0_0_20px_rgba(80,250,123,0.3)] transition-all"
++                >
++                  {visualMode === 'represent' ? (
++                    <option value="atmospheric">Atmospheric</option>
++                  ) : visualMode === 'signal-glitch' ? (
++                    <>
++                      <option value="mostly-mono">Mostly Mono</option>
++                      <option value="mono-accent">Mono + Accent</option>
++                      <option value="mixed">Mixed</option>
++                      <option value="spectral-rgb">Spectral RGB</option>
++                    </>
++                  ) : visualMode === 'contour' ? (
++                    <>
++                      <option value="print-black">PRINT BLACK</option>
++                      <option value="topo-relief">TOPO RELIEF</option>
++                      <option value="spectral-contour">SPECTRAL CONTOUR</option>
++                    </>
++                  ) : visualMode === 'kaleidoscope' ? (
++                    <>
++                      <option value="prism">PRISM</option>
++                      <option value="tube-light">TUBE LIGHT</option>
++                      <option value="glass-bloom">GLASS BLOOM</option>
++                      <option value="chroma-wheel">CHROMA WHEEL</option>
++                    </>
++                  ) : (
++                    <>
++                      <option value="cosmic-flow">COSMIC FLOW</option>
++                      <option value="dual-lava">DUAL LAVA</option>
++                      <option value="spectral-flow">SPECTRAL FLOW</option>
++                    </>
++                  )}
++                </select>
++              </div>
+             </div>
+-          </div>
+-        </div>
++          </section>
+ 
+-      </div>
++        </div>
++      </main>
++
++      {/* Initialize Button (FAB) */}
++      <button 
++        onClick={handleStart}
++        disabled={assets.length === 0}
++        title={assets.length === 0 ? "You need to upload a Source Material first" : "Start VIZR Visualizer"}
++        className={`fixed bottom-24 lg:bottom-20 right-6 lg:right-12 z-50 flex items-center gap-4 px-8 py-5 text-black font-['Space_Grotesk'] font-black text-xl tracking-tighter rounded-sm transition-all shadow-[0_0_50px_rgba(80,250,123,0.4)] ${assets.length > 0 ? 'bg-gradient-to-br from-[#50FA7B] to-[#04d259] hover:scale-105 active:scale-95' : 'bg-neutral-600 opacity-50 cursor-not-allowed'}`}
++      >
++        <span>INITIALIZE ENGINE</span>
++        <Play size={24} fill="currentColor" />
++      </button>
+ 
+       {/* Footer */}
+-      <footer className="w-full mx-auto mt-12 pb-8 border-t border-neutral-800/50 pt-8 text-center space-y-6">
+-        <div className="flex justify-center gap-6 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+-          <button onClick={() => setShowFaqModal(true)} className="hover:text-white transition-colors">FAQ</button>
+-          <button onClick={() => setShowAboutModal(true)} className="hover:text-white transition-colors">About</button>
+-          <button onClick={() => setShowContactModal(true)} className="hover:text-white transition-colors">Contact</button>
+-          <button onClick={() => setShowImpressumModal(true)} className="hover:text-white transition-colors">Impressum</button>
+-        </div>
+-        <div className="text-[10px] text-neutral-600 font-mono tracking-wider flex flex-col items-center gap-2">
+-          <span>VIZR v2.0 beta © 2026 // Web-Based Visualization System</span>
+-          <span>vibecoded by kvssi</span>
++      <footer className="fixed bottom-0 w-full flex justify-between items-center px-8 hidden md:flex h-12 bg-black z-40 border-t border-[#ffffff0d] opacity-80 hover:opacity-100 transition-opacity">
++        <div className="font-['Inter'] text-[9px] tracking-[0.2em] uppercase text-[#555555]">© 2026 VIZR PRECISION INSTRUMENTS // VIBECODED BY KVSSI</div>
++        <div className="flex gap-6 font-['Inter'] text-[9px] tracking-[0.2em] uppercase">
++          <button onClick={() => setShowFaqModal(true)} className="text-[#555555] hover:text-white transition-colors">FAQ</button>
++          <button onClick={() => setShowAboutModal(true)} className="text-[#555555] hover:text-white transition-colors">About</button>
++          <button onClick={() => setShowImpressumModal(true)} className="text-[#555555] hover:text-white transition-colors">Impressum</button>
++          <button onClick={() => setShowContactModal(true)} className="text-[#555555] hover:text-white transition-colors">Contact</button>
+         </div>
+       </footer>
+ 
++
+       {showContactModal && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setShowContactModal(false)}>
+           <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-2xl max-w-md w-full space-y-6 shadow-2xl" onClick={e => e.stopPropagation()}>

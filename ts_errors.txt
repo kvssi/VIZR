@@ -1,0 +1,7 @@
+src/App.tsx(392,26): error TS2304: Cannot find name 'parseMetadata'.
+src/App.tsx(519,28): error TS2304: Cannot find name 'parseMetadata'.
+src/assets/AssetEditor.tsx(96,12): error TS2304: Cannot find name 'X'.
+src/assets/AssetEditor.tsx(150,18): error TS2304: Cannot find name 'ImageIcon'.
+src/assets/AssetEditor.tsx(290,22): error TS2304: Cannot find name 'RefreshCw'.
+src/assets/AssetEditor.tsx(301,20): error TS2304: Cannot find name 'Zap'.
+src/assets/AssetEditor.tsx(322,18): error TS2304: Cannot find name 'Activity'.

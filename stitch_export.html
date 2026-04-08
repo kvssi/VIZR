@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>VIZR Precision Studio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline": "#8b91a0",
+                    "background": "#111319",
+                    "on-background": "#e1e2e9",
+                    "inverse-on-surface": "#2e3036",
+                    "on-surface-variant": "#c0c6d6",
+                    "on-error-container": "#ffdad6",
+                    "secondary-container": "#264778",
+                    "secondary": "#aac7ff",
+                    "error-container": "#93000a",
+                    "primary-fixed-dim": "#aac7ff",
+                    "tertiary-container": "#eb6a12",
+                    "surface-container-high": "#272a30",
+                    "surface-dim": "#111319",
+                    "on-secondary-fixed": "#001b3e",
+                    "on-tertiary-fixed-variant": "#793100",
+                    "inverse-primary": "#005db8",
+                    "primary-fixed": "#d6e3ff",
+                    "on-secondary": "#083060",
+                    "surface-variant": "#32353a",
+                    "on-tertiary-fixed": "#341100",
+                    "tertiary-fixed": "#ffdbcb",
+                    "secondary-fixed-dim": "#aac7ff",
+                    "primary": "#aac7ff",
+                    "on-primary": "#003064",
+                    "on-error": "#690005",
+                    "on-primary-fixed-variant": "#00468d",
+                    "outline-variant": "#414754",
+                    "on-tertiary": "#552000",
+                    "surface-bright": "#36393f",
+                    "surface-tint": "#aac7ff",
+                    "surface-container": "#1d2025",
+                    "surface-container-highest": "#32353a",
+                    "inverse-surface": "#e1e2e9",
+                    "error": "#ffb4ab",
+                    "surface-container-lowest": "#0b0e13",
+                    "on-primary-fixed": "#001b3e",
+                    "tertiary-fixed-dim": "#ffb691",
+                    "on-primary-container": "#002957",
+                    "secondary-fixed": "#d6e3ff",
+                    "on-secondary-container": "#98b6ee",
+                    "on-tertiary-container": "#4a1b00",
+                    "primary-container": "#3e90ff",
+                    "on-surface": "#e1e2e9",
+                    "surface-container-low": "#191c21",
+                    "tertiary": "#ffb691",
+                    "surface": "#111319",
+                    "on-secondary-fixed-variant": "#264778"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Space Grotesk"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { background-color: #111319; color: #e1e2e9; font-family: 'Inter', sans-serif; overflow: hidden; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+        .glow-primary { box-shadow: 0 0 15px rgba(10, 132, 255, 0.3); }
+        .milled-surface { background: linear-gradient(145deg, #191c21 0%, #111319 100%); }
+        .atmospheric-glow { background: linear-gradient(45deg, #aac7ff 0%, #3e90ff 100%); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #111319; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #414754; border-radius: 2px; }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full h-16 bg-[#111319] flex justify-between items-center px-8 w-full z-50">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-bold tracking-tighter text-[#e1e2e9] font-headline">VIZR</span>
+<nav class="flex items-center gap-6">
+<a class="font-headline text-sm tracking-tighter uppercase text-[#0A84FF] border-b-2 border-[#0A84FF] pb-1" href="#">Effects</a>
+<a class="font-headline text-sm tracking-tighter uppercase text-[#e1e2e9]/60 hover:text-[#e1e2e9] transition-colors" href="#">Upload Images</a>
+<a class="font-headline text-sm tracking-tighter uppercase text-[#e1e2e9]/60 hover:text-[#e1e2e9] transition-colors" href="#">Assets</a>
+<a class="font-headline text-sm tracking-tighter uppercase text-[#e1e2e9]/60 hover:text-[#e1e2e9] transition-colors" href="#">Initialize</a>
+<a class="font-headline text-sm tracking-tighter uppercase text-[#e1e2e9]/60 hover:text-[#e1e2e9] transition-colors" href="#">Remote</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 mr-4">
+<button class="p-2 text-[#e1e2e9]/60 hover:bg-[#272a30] rounded transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<button class="p-2 text-[#e1e2e9]/60 hover:bg-[#272a30] rounded transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+<button class="atmospheric-glow text-on-primary-container px-6 py-2 rounded font-headline text-sm font-bold tracking-tighter uppercase scale-95 active:scale-90 transition-transform glow-primary">
+                Launch Studio
+            </button>
+</div>
+</header>
+<!-- Main Content Area (Full Screen Grid) -->
+<main class="flex-1 mt-16 mb-8 px-8 py-6 grid grid-cols-12 grid-rows-6 gap-2 bg-[#111319]">
+<!-- Source Material - Top Left -->
+<section class="col-span-3 row-span-4 bg-[#191c21] rounded flex flex-col overflow-hidden">
+<div class="p-4 flex justify-between items-center bg-[#1d2025]">
+<h2 class="font-headline text-xs tracking-widest uppercase text-on-surface-variant">Source Material</h2>
+<span class="material-symbols-outlined text-sm text-[#0A84FF]" data-icon="video_file">video_file</span>
+</div>
+<div class="flex-1 p-4 flex flex-col gap-4">
+<div class="relative aspect-video bg-[#0b0e13] rounded overflow-hidden group">
+<img alt="Studio Source" class="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" data-alt="Technical close-up of high-end server hardware with glowing blue LED indicators in a dark professional data center environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCCVAJU_RpBtnjFAct8L5OrDPYW20eW_inYI_HBSeCg4gzyUv7uBVgb2BOEH59CKcDiyUsy2AZlJbBBC2CNpaa-F_QL9AY7IJRRwDmKnvBEtf5ecBeQjPEFx4AOjCK0efgO9zTuPhWGo0cnpsFZfqsBxyjbaVcqVXHeNRBF14OBG1JaiuurUlRGMXM97DlXEHZEsI14zlAf6PE6KchpTEQL6mPNwJoEho2izwuE3Clt_oP1qmJBDb7_XAaiXfhWxDwuUttxDVGlQls"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-[#0A84FF]/40" data-icon="play_circle">play_circle</span>
+</div>
+<div class="absolute bottom-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[10px] font-label tracking-widest text-[#0A84FF]">
+                        4K // 60FPS
+                    </div>
+</div>
+<div class="space-y-2 custom-scrollbar overflow-y-auto">
+<div class="p-3 bg-[#272a30] rounded flex items-center justify-between border-l-2 border-[#0A84FF]">
+<span class="text-xs font-label text-on-surface">RAW_STREAM_01.MKV</span>
+<span class="text-[10px] font-label text-outline uppercase">Active</span>
+</div>
+<div class="p-3 bg-[#1d2025] hover:bg-[#272a30] rounded flex items-center justify-between transition-colors cursor-pointer">
+<span class="text-xs font-label text-on-surface-variant">DEPTH_PASS_A.EXR</span>
+<span class="text-[10px] font-label text-outline uppercase">Ready</span>
+</div>
+<div class="p-3 bg-[#1d2025] hover:bg-[#272a30] rounded flex items-center justify-between transition-colors cursor-pointer">
+<span class="text-xs font-label text-on-surface-variant">LIDAR_POINT_CLOUD.OBJ</span>
+<span class="text-[10px] font-label text-outline uppercase">Ready</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Audio Input - Bottom Left -->
+<section class="col-span-3 row-span-2 bg-[#191c21] rounded flex flex-col overflow-hidden">
+<div class="p-4 flex justify-between items-center bg-[#1d2025]">
+<h2 class="font-headline text-xs tracking-widest uppercase text-on-surface-variant">Audio Input</h2>
+<span class="material-symbols-outlined text-sm text-[#0A84FF]" data-icon="graphic_eq">graphic_eq</span>
+</div>
+<div class="flex-1 p-4 flex flex-col justify-center space-y-4">
+<div class="h-16 flex items-end justify-between gap-1">
+<div class="w-1 bg-[#0A84FF] h-1/2 opacity-20"></div>
+<div class="w-1 bg-[#0A84FF] h-2/3 opacity-40"></div>
+<div class="w-1 bg-[#0A84FF] h-full shadow-[0_0_8px_#0A84FF]"></div>
+<div class="w-1 bg-[#0A84FF] h-3/4 opacity-60"></div>
+<div class="w-1 bg-[#0A84FF] h-1/2 opacity-30"></div>
+<div class="w-1 bg-[#0A84FF] h-2/3 opacity-50"></div>
+<div class="w-1 bg-[#0A84FF] h-1/3 opacity-20"></div>
+<div class="w-1 bg-[#0A84FF] h-2/3 opacity-40"></div>
+<div class="w-1 bg-[#0A84FF] h-full shadow-[0_0_8px_#0A84FF]"></div>
+<div class="w-1 bg-[#0A84FF] h-4/5 opacity-70"></div>
+<div class="w-1 bg-[#0A84FF] h-1/2 opacity-30"></div>
+<div class="w-1 bg-[#0A84FF] h-3/4 opacity-60"></div>
+</div>
+<div class="flex justify-between items-center text-[10px] font-label tracking-widest text-outline">
+<span>-48dB</span>
+<span>-24dB</span>
+<span>-12dB</span>
+<span class="text-[#0A84FF]">0dB</span>
+</div>
+</div>
+</section>
+<!-- Visual Mode (Main Stage) - Center -->
+<section class="col-span-6 row-span-6 bg-[#0b0e13] rounded flex flex-col overflow-hidden relative border border-white/5">
+<div class="absolute top-4 left-4 z-10 flex gap-2">
+<div class="px-3 py-1 bg-black/60 backdrop-blur-xl rounded border border-white/5 text-[10px] font-headline tracking-widest uppercase text-[#0A84FF]">
+                    Live Preview
+                </div>
+<div class="px-3 py-1 bg-black/60 backdrop-blur-xl rounded border border-white/5 text-[10px] font-headline tracking-widest uppercase text-on-surface">
+                    RTX_ENABLED
+                </div>
+</div>
+<div class="absolute top-4 right-4 z-10 flex gap-2">
+<button class="p-1.5 bg-black/60 backdrop-blur-xl rounded border border-white/5 text-on-surface hover:text-[#0A84FF] transition-colors">
+<span class="material-symbols-outlined text-base" data-icon="fullscreen">fullscreen</span>
+</button>
+</div>
+<div class="flex-1 flex items-center justify-center relative overflow-hidden">
+<!-- Abstract visual representation -->
+<div class="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,_#264778_0%,_transparent_70%)]"></div>
+<div class="w-full h-full bg-[#111319] flex items-center justify-center">
+<img alt="Main Visual View" class="w-full h-full object-cover mix-blend-screen opacity-90" data-alt="Abstract flowing liquid chrome structures with neon blue light reflections and deep shadows, professional artistic render" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCljkEs6UL1j6dyO-oUZI7DaapuQADJYg7DCf9qW1V3NDgdIeoEd-raNIJgNtU8Kh_FuVSaXZ_p4kiUHmly_GiGQ27S_pixXBttZqn5aZKSOoiAeojnlG7Pp71DQckuSpoNqshzciZw3WjTGwh_iKJ7z5WA2CuKNF8TBtYNNNQUcTY2tyJ5OMQGQQvwu3p4AF4PQFC-rWuTTOca_ertXKV0ce7wWADNSEBky-u1AGEKDaV_wvs7LJ5Hdqs-277_TNpI3f4DhGTNECY"/>
+</div>
+<!-- HUD Elements -->
+<div class="absolute bottom-6 left-6 text-left">
+<div class="font-headline text-4xl font-bold tracking-tighter text-[#e1e2e9]">24.8ms</div>
+<div class="font-label text-[10px] tracking-widest text-outline uppercase">Latency Profile</div>
+</div>
+<div class="absolute bottom-6 right-6 text-right">
+<div class="font-headline text-4xl font-bold tracking-tighter text-[#0A84FF]">144</div>
+<div class="font-label text-[10px] tracking-widest text-outline uppercase">Frame Rate Index</div>
+</div>
+</div>
+<!-- Bottom Toolbar for Main Stage -->
+<div class="h-14 bg-[#191c21]/80 backdrop-blur-md flex items-center justify-between px-6 border-t border-white/5">
+<div class="flex gap-4">
+<button class="material-symbols-outlined text-[#0A84FF]" data-icon="videocam">videocam</button>
+<button class="material-symbols-outlined text-outline" data-icon="layers">layers</button>
+<button class="material-symbols-outlined text-outline" data-icon="grid_on">grid_on</button>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3">
+<span class="text-[10px] font-label text-outline uppercase">Exposure</span>
+<div class="w-24 h-1 bg-[#272a30] rounded-full overflow-hidden">
+<div class="w-2/3 h-full bg-[#0A84FF]"></div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-[10px] font-label text-outline uppercase">Gamma</span>
+<div class="w-24 h-1 bg-[#272a30] rounded-full overflow-hidden">
+<div class="w-1/2 h-full bg-[#0A84FF]"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- FX Settings - Right Side -->
+<section class="col-span-3 row-span-6 bg-[#191c21] rounded flex flex-col overflow-hidden">
+<div class="p-4 flex justify-between items-center bg-[#1d2025]">
+<h2 class="font-headline text-xs tracking-widest uppercase text-on-surface-variant">FX Settings</h2>
+<span class="material-symbols-outlined text-sm text-[#0A84FF]" data-icon="tune">tune</span>
+</div>
+<div class="flex-1 p-6 space-y-8 custom-scrollbar overflow-y-auto">
+<!-- FX Group 1 -->
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-xs font-headline font-bold tracking-tighter text-on-surface">Chroma Distortion</span>
+<div class="w-8 h-4 bg-[#0A84FF] rounded-full relative">
+<div class="absolute right-1 top-1 w-2 h-2 bg-white rounded-full"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-[10px] font-label text-outline uppercase">
+<span>Intensity</span>
+<span>74%</span>
+</div>
+<div class="h-1 bg-[#0b0e13] rounded-full relative">
+<div class="absolute left-0 top-0 h-full w-[74%] bg-[#0A84FF] shadow-[0_0_10px_#0A84FF]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-[10px] font-label text-outline uppercase">
+<span>Refraction</span>
+<span>12%</span>
+</div>
+<div class="h-1 bg-[#0b0e13] rounded-full relative">
+<div class="absolute left-0 top-0 h-full w-[12%] bg-[#0A84FF]"></div>
+</div>
+</div>
+</div>
+<!-- FX Group 2 -->
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-xs font-headline font-bold tracking-tighter text-on-surface">Grain Structure</span>
+<div class="w-8 h-4 bg-[#272a30] rounded-full relative">
+<div class="absolute left-1 top-1 w-2 h-2 bg-outline rounded-full"></div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<button class="p-3 bg-[#272a30] border border-white/5 rounded text-[10px] font-label text-outline hover:text-[#0A84FF] transition-colors uppercase">Analog</button>
+<button class="p-3 bg-[#0b0e13] border border-[#0A84FF]/30 rounded text-[10px] font-label text-[#0A84FF] uppercase">Digital</button>
+</div>
+</div>
+<!-- FX Group 3 -->
+<div class="space-y-4">
+<span class="text-xs font-headline font-bold tracking-tighter text-on-surface">Spatial Mapping</span>
+<div class="p-4 bg-[#0b0e13] rounded aspect-square flex items-center justify-center relative">
+<div class="absolute inset-4 border border-[#0A84FF]/20 rounded-full"></div>
+<div class="absolute inset-8 border border-[#0A84FF]/10 rounded-full"></div>
+<div class="w-2 h-2 bg-[#0A84FF] rounded-full shadow-[0_0_15px_#0A84FF]"></div>
+<div class="absolute top-1/2 left-4 right-4 h-[1px] bg-white/5"></div>
+<div class="absolute left-1/2 top-4 bottom-4 w-[1px] bg-white/5"></div>
+</div>
+<div class="flex justify-center gap-4">
+<div class="text-center">
+<div class="text-[10px] font-label text-outline uppercase">X-Axis</div>
+<div class="text-xs font-headline text-on-surface">144.2</div>
+</div>
+<div class="text-center">
+<div class="text-[10px] font-label text-outline uppercase">Y-Axis</div>
+<div class="text-xs font-headline text-on-surface">-32.8</div>
+</div>
+<div class="text-center">
+<div class="text-[10px] font-label text-outline uppercase">Z-Axis</div>
+<div class="text-xs font-headline text-on-surface">0.0</div>
+</div>
+</div>
+</div>
+</div>
+<div class="p-6 bg-[#1d2025]">
+<button class="w-full py-3 bg-[#272a30] hover:bg-[#32353a] text-on-surface font-headline text-xs tracking-widest uppercase transition-all rounded">
+                    Reset Module
+                </button>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="fixed bottom-0 w-full h-8 bg-[#111319] flex justify-between items-center px-8 w-full z-50 border-t border-[#414754]/20">
+<div class="flex items-center gap-6">
+<span class="text-xs font-bold text-[#e1e2e9] font-headline">VIZR PRECISION</span>
+<div class="flex gap-4">
+<a class="font-headline text-[10px] tracking-widest uppercase text-[#e1e2e9]/40 hover:text-[#0A84FF] transition-colors" href="#">Status</a>
+<a class="font-headline text-[10px] tracking-widest uppercase text-[#e1e2e9]/40 hover:text-[#0A84FF] transition-colors" href="#">Documentation</a>
+<a class="font-headline text-[10px] tracking-widest uppercase text-[#e1e2e9]/40 hover:text-[#0A84FF] transition-colors" href="#">Support</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-[10px] font-label tracking-widest uppercase text-outline">Engine: <span class="text-[#0A84FF]">v2.4.0-Stable</span></span>
+<span class="text-[10px] font-label tracking-widest uppercase text-[#e1e2e9]/40">© 2024 VIZR PRECISION</span>
+</div>
+</footer>
+</body></html>
