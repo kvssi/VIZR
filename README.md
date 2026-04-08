@@ -34,13 +34,12 @@ Das System läuft komplett lokal in deinem Browser. Deine Bilder werden nirgendw
 - **Steuerung:** Das System läuft weitgehend automatisch, lässt sich aber über das Web-Interface oder die Smartphone-Remote live beeinflussen.
 - **Vollbild:** Nutze die F11-Taste deines Browsers für das beste Erlebnis.
 
-## Architektur (Modularization v2)
+## Hinweise zum Beta-Status
 
-Das System wurde in Phase 2 umfassend modularisiert, um Stabilität und Wartbarkeit zu erhöhen:
-- **`src/engine/`**: Enthält die Kernlogik (`VisualEngine.ts`, `AudioAnalyzer.ts`).
-- **`src/ui/`**: Beinhaltet alle UI-Komponenten (`SetupView`, `LiveControls`, `Modals`, `ToggleSwitch`, `RemoteControl`).
-- **`src/assets/`**: Logik für Asset-Parsing und den `AssetEditor`.
-- **Shared Components**: Die Remote-Control und die Hauptanwendung nutzen nun ein gemeinsames System für Modals und Bedienelemente, was eine einheitliche User Experience und einfache Wartung ermöglicht.
+VIZR befindet sich aktuell in einer frühen Entwicklungsphase. 
+- Das Tool ist bewusst minimal gehalten.
+- Features und das Verhalten der Audio-Reaktivität können sich in zukünftigen Updates ändern.
+- Weitere visuelle Modi und Erweiterungen sind geplant.
 
 ---
 

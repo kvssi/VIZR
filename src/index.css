@@ -1,15 +1,1 @@
 @import "tailwindcss";
-
-@theme {
-  --color-vizr-onyx: #15131a;
-  --color-vizr-signal: #e0529c;
-  --color-vizr-surface: #1f1d24;
-  --color-vizr-slate: #2a2a30;
-}
-
-@layer base {
-  body {
-    @apply bg-vizr-onyx text-neutral-300;
-  }
-}
-

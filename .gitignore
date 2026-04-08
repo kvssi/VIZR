@@ -6,9 +6,3 @@ coverage/
 *.log
 .env*
 !.env.example
-
-# Analysis and logs
-*.txt
-stitch_export.html
-.vscode/
-tmp/

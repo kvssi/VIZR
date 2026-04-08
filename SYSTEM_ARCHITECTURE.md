@@ -4,13 +4,11 @@ VIZR ist ein browserbasiertes Visual-System, das auf React und WebGL basiert. Es
 
 ## Aufbau des Systems
 
-Das System ist in einer modularen Architektur organisiert:
-1. **Benutzeroberfläche (React - `src/ui/`):** Orchestriert den State und die verschiedenen Ansichten (`SetupView`, `LiveControls`, `Modals`).
-2. **Audio-Analyzer (Web Audio API - `src/engine/AudioAnalyzer.ts`):** Extrahiert musikalische Merkmale (Kick, Clap, Bass) in Echtzeit. Isoliert vom React-Lifecycle für maximale Stabilität.
-3. **Visual Engine (WebGL - `src/engine/VisualEngine.ts`):** Verwaltet das Rendering, die Shader-Logik und die Asset-Zuweisung.
-4. **Asset-Management (React - `src/assets/`):** Enthält den `AssetEditor` und die Logik zur Metadaten-Extraktion.
-5. **Remote-Control (Socket.io - `src/ui/RemoteControl/`):** Ermöglicht die Synchronisation mit mobilen Endgeräten. Nutzt dieselben UI-Komponenten (Modals, Toggles) wie die Haupt-App.
-6. **Backend (Express - `server.ts`):** Ein Node.js-Backend für die WebSocket-Kommunikation.
+Das System besteht aus vier Hauptkomponenten:
+1. **Benutzeroberfläche (React):** Verarbeitet Benutzereingaben (Datei-Uploads, Audioquellen-Auswahl, globale Effekt-Regler).
+2. **Audio-Analyzer (Web Audio API):** Analysiert das eingehende Audiosignal in Echtzeit und extrahiert musikalische Merkmale (Kick, Clap, Hi-Hats, Bass Groove). Beinhaltet robustes Error-Handling für asynchrone Play/Pause-Events.
+3. **Visual Engine (WebGL):** Rendert die hochgeladenen Bilder basierend auf den Audio-Daten und den zugewiesenen Rollen. Implementiert komplexe Shader-Logik wie "Transparency Modes" und ein zustandsbasiertes Zoom-System (Hold, Drift, Pulse).
+4. **Backend (Express & Socket.io):** Ein leichtgewichtiges Node.js-Backend, das die Echtzeit-Synchronisation zwischen der Hauptanwendung und der Smartphone-Fernbedienung (VIZR Remote) ermöglicht.
 
 ## Layer-System
 
