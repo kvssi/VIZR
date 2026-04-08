@@ -11,7 +11,7 @@ async function startServer() {
     maxHttpBufferSize: 1e8 // 100MB for image uploads
   });
 
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 8080;
 
   io.on('connection', (socket) => {
     let currentRoom: string | null = null;

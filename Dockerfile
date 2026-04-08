@@ -30,7 +30,7 @@ COPY --from=builder /app/package*.json ./
 RUN npm install --omit=dev
 
 # Expose the port (Cloud Run sets this via PORT env var)
-EXPOSE 3000
+EXPOSE 8080
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["node", "dist/server.cjs"]
